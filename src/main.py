@@ -29,7 +29,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("VERI TERMINALINI AC", web_app=WebAppInfo(url="https://sizin-web-app-url.com"))]
+        [InlineKeyboardButton("VERI TERMINALINI AC", web_app=WebAppInfo(url="https://telegramweb-gd62.onrender.com"))]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
