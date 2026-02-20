@@ -62,7 +62,7 @@ app.get('/api/takas/:symbol', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../web-app/dist')));
 
 // Wildcard to handle React Router if used, otherwise serves index.html
-app.get('*', (req, res) => {
+app.get('(.*)', (req, res) => {
     res.sendFile(path.join(__dirname, '../web-app/dist/index.html'));
 });
 

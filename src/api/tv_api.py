@@ -1,5 +1,6 @@
 from tvDatafeed import TvDatafeed, Interval
 import os
+from dotenv import load_dotenv
 # Load environment variables from root
 current_dir = os.path.dirname(os.path.abspath(__file__)) # src/api
 root_dir = os.path.dirname(os.path.dirname(current_dir)) # root
