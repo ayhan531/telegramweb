@@ -6,6 +6,6 @@ python-dotenv
 yfinance
 plotly
 kaleido
-tvdatafeed
+git+https://github.com/rongardF/tvdatafeed.git
 beautifulsoup4
 gunicorn
