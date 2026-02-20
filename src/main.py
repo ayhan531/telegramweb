@@ -8,8 +8,10 @@ from api.tv_api import get_tv_stock_data, get_tv_stock_history
 from api.real_akd_api import get_real_akd_data
 from utils.chart_generator import create_stock_chart
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from root
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+load_dotenv(os.path.join(root_dir, '.env'))
 
 # Logging setup
 logging.basicConfig(
@@ -19,23 +21,26 @@ logging.basicConfig(
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
-        "FINANSAL ANALIZ SISTEMI\n"
+        "📊 DERINLIK & ANALIZ TERMINALI\n"
         "-----------------------------------\n"
-        "BIST veri terminaline hos geldiniz.\n\n"
+        "BIST Gerçek Zamanlı Veri ve Analiz Sistemine hoş geldiniz.\n\n"
+        "Aşağıdaki butona tıklayarak derinlik, AKD, takas ve grafiklere anlık olarak erişebilirsiniz.\n\n"
         "KOMUTLAR\n"
         "/derinlik [SEMBOL] - Piyasa verileri\n"
         "/grafik [SEMBOL]   - Teknik analiz grafigi\n"
+        "/akd [SEMBOL]      - Aracı Kurum Dağılımı\n"
         "/yardim           - Detayli dokumantasyon"
     )
     
+    # Render veya diğer ortamlarda WEBAPP_URL üzerinden TMA linki dinamik alınır
+    webapp_url = os.getenv("WEBAPP_URL", "https://ucretsizderinlikbot.pages.dev")
     keyboard = [
-        [InlineKeyboardButton("VERI TERMINALINI AC", web_app=WebAppInfo(url="https://telegramweb-gd62.onrender.com"))]
+        [InlineKeyboardButton("📊 TERMINALI AC", web_app=WebAppInfo(url=webapp_url))]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        f"```\n{welcome_text}\n```", 
-        parse_mode='MarkdownV2',
+        welcome_text, 
         reply_markup=reply_markup
     )
 

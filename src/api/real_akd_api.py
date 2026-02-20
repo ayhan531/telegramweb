@@ -1,6 +1,14 @@
 import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from bs4 import BeautifulSoup
-import pandas as pd
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from root
+current_dir = os.path.dirname(os.path.abspath(__file__)) # src/api
+root_dir = os.path.dirname(os.path.dirname(current_dir)) # root
+load_dotenv(os.path.join(root_dir, '.env'))
 
 def get_real_akd_data(symbol: str):
     """
@@ -12,7 +20,7 @@ def get_real_akd_data(symbol: str):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
         
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, verify=False)
         if response.status_code != 200:
             return None
             
@@ -54,3 +62,14 @@ def get_real_akd_data(symbol: str):
     except Exception as e:
         print(f"Gerçek AKD Hatası: {e}")
         return None
+
+if __name__ == "__main__":
+    import sys
+    import json
+    if len(sys.argv) > 1:
+        sym = sys.argv[1].upper()
+        res = get_real_akd_data(sym)
+        if res:
+            print(json.dumps(res))
+        else:
+            print(json.dumps({"error": "Veri bulunamadı"}))

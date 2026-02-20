@@ -4,29 +4,30 @@ import dotenv from 'dotenv';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const execAsync = promisify(exec);
-dotenv.config({ path: '../.env' });
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.API_PORT || 3000;
+const PORT = process.env.PORT || process.env.API_PORT || 3000;
 
 // Hisse Verisi Endpoint'i
 app.get('/api/stock/:symbol', async (req, res) => {
     const { symbol } = req.params;
     try {
-        // Python script'ini çağırarak veri al (veya doğrudan kütüphaneleri kullan)
-        // Şimdilik örnek veri döndürelim, daha sonra gerçek entegrasyon yapılacak
-        res.json({
-            symbol,
-            price: 284.50,
-            change: 1.25,
-            name: "TURK HAVA YOLLARI",
-            currency: "TRY"
-        });
+        const { stdout } = await execAsync(`python3 api/tv_api.py ${symbol}`);
+        const data = JSON.parse(stdout);
+        res.json(data);
     } catch (error) {
+        console.error('Stock API Hatası:', error);
         res.status(500).json({ error: 'Veri çekilemedi' });
     }
 });
@@ -35,20 +36,34 @@ app.get('/api/stock/:symbol', async (req, res) => {
 app.get('/api/akd/:symbol', async (req, res) => {
     const { symbol } = req.params;
     try {
-        res.json({
-            symbol,
-            buyers: [
-                { kurum: "YATIRIM FINANSMAN", lot: "1.250.000" },
-                { kurum: "AK YATIRIM", lot: "850.000" }
-            ],
-            sellers: [
-                { kurum: "BOFA", lot: "1.400.000" },
-                { kurum: "ZIRAAT YATIRIM", lot: "900.000" }
-            ]
-        });
+        const { stdout } = await execAsync(`python3 api/real_akd_api.py ${symbol}`);
+        const data = JSON.parse(stdout);
+        res.json(data);
     } catch (error) {
+        console.error('AKD API Hatası:', error);
         res.status(500).json({ error: 'AKD verisi çekilemedi' });
     }
+});
+
+// Takas Verisi Endpoint'i
+app.get('/api/takas/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    try {
+        const { stdout } = await execAsync(`python3 api/takas_api.py ${symbol}`);
+        const data = JSON.parse(stdout);
+        res.json(data);
+    } catch (error) {
+        console.error('Takas API Hatası:', error);
+        res.status(500).json({ error: 'Takas verisi çekilemedi' });
+    }
+});
+
+// Serve Frontend
+app.use(express.static(path.join(__dirname, '../web-app/dist')));
+
+// Wildcard to handle React Router if used, otherwise serves index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../web-app/dist/index.html'));
 });
 
 app.listen(PORT, () => {

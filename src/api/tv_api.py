@@ -1,8 +1,9 @@
 from tvDatafeed import TvDatafeed, Interval
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+# Load environment variables from root
+current_dir = os.path.dirname(os.path.abspath(__file__)) # src/api
+root_dir = os.path.dirname(os.path.dirname(current_dir)) # root
+load_dotenv(os.path.join(root_dir, '.env'))
 
 # TradingView bağlantısını başlat
 # Not: Kimlik bilgileri olmadan da çalışabilir ama sınırlıdır.
@@ -71,3 +72,18 @@ def get_tv_stock_history(symbol: str, n_bars=100):
     except Exception as e:
         print(f"TradingView Hatası: {e}")
         return None
+
+if __name__ == "__main__":
+    import sys
+    import json
+    if len(sys.argv) > 1:
+        sym = sys.argv[1].upper()
+        res = get_tv_stock_data(sym)
+        if res:
+            # Convert NaN to None for JSON
+            for k, v in res.items():
+                if isinstance(v, float) and (v != v): # check for NaN
+                    res[k] = None
+            print(json.dumps(res))
+        else:
+            print(json.dumps({"error": "Veri bulunamadı"}))

@@ -1,0 +1,11 @@
+{
+    "name": "derinlikbot-root",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "cd src && bash start.sh",
+        "build": "bash build.sh"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}
