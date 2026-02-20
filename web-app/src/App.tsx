@@ -181,7 +181,7 @@ const NavButton = ({ icon: Icon, label, active = false }: any) => (
 );
 
 // Tab Content Views
-const DerinlikView = ({ symbol }: { symbol: string }) => (
+const DerinlikView = ({ symbol: _symbol }: { symbol: string }) => (
   <div className="bg-zinc-900/30 rounded-xl border border-zinc-800/50 overflow-hidden">
     <div className="grid grid-cols-2 divide-x divide-zinc-800/50">
       <div className="p-3">
