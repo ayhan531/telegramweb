@@ -1,0 +1,10 @@
+python-telegram-bot
+requests
+pandas
+matplotlib
+python-dotenv
+yfinance
+plotly
+kaleido
+tvdatafeed
+beautifulsoup4
