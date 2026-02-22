@@ -33,7 +33,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     # Render veya diğer ortamlarda WEBAPP_URL üzerinden TMA linki dinamik alınır
-    webapp_url = os.getenv("WEBAPP_URL", "https://ucretsizderinlikbot.pages.dev")
+    webapp_url = os.getenv("WEBAPP_URL", "https://telegramweb-gd62.onrender.com")
     keyboard = [
         [InlineKeyboardButton("📊 TERMINALI AC", web_app=WebAppInfo(url=webapp_url))]
     ]
