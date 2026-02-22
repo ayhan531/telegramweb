@@ -1,7 +1,7 @@
 import logging
 import os
 import matplotlib.pyplot as plt
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, MenuButtonWebApp
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from dotenv import load_dotenv
 from api.tv_api import get_tv_stock_data, get_tv_stock_history
@@ -131,12 +131,22 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(f"```\n{text}\n```", parse_mode='MarkdownV2')
 
+async def post_init(application):
+    webapp_url = os.getenv("WEBAPP_URL", "https://telegramweb-gd62.onrender.com")
+    try:
+        await application.bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(text="Terminal", web_app=WebAppInfo(url=webapp_url))
+        )
+        logging.info(f"Yenilenen Menu Butonu URL'si basariyla ayarlandi: {webapp_url}")
+    except Exception as e:
+        logging.error(f"Failed to set menu button: {e}")
+
 if __name__ == '__main__':
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token or token == "your_bot_token_here":
         print("Hata: TELEGRAM_BOT_TOKEN ayarlanmamış! Lütfen .env dosyasını güncelleyin.")
     else:
-        application = ApplicationBuilder().token(token).build()
+        application = ApplicationBuilder().token(token).post_init(post_init).build()
         
         application.add_handler(CommandHandler('start', start))
         application.add_handler(CommandHandler('yardim', yardim))
