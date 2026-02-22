@@ -145,4 +145,4 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('akd', akd))
         
         print("Bot başlatılıyor...")
-        application.run_polling()
+        application.run_polling(drop_pending_updates=True)
