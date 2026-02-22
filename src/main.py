@@ -32,8 +32,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/yardim           - Detayli dokumantasyon"
     )
     
-    # Render veya diğer ortamlarda WEBAPP_URL üzerinden TMA linki dinamik alınır
-    webapp_url = os.getenv("WEBAPP_URL", "https://telegramweb-gd62.onrender.com")
+    # Kullanicinin Render'da yanlislikla "WEBAPP_URL" degiskenini eski .pages.dev olarak 
+    # kaydetmis olma ihtimaline karsi o degiskeni GORMEZDEN GELIYORUZ.
+    # Render'in kendi verdigi RENDER_EXTERNAL_URL'yi veya sabit degeri kullaniyoruz:
+    webapp_url = os.getenv("RENDER_EXTERNAL_URL", "https://telegramweb-gd62.onrender.com")
     keyboard = [
         [InlineKeyboardButton("📊 TERMINALI AC", web_app=WebAppInfo(url=webapp_url))]
     ]
@@ -132,7 +134,7 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"```\n{text}\n```", parse_mode='MarkdownV2')
 
 async def post_init(application):
-    webapp_url = os.getenv("WEBAPP_URL", "https://telegramweb-gd62.onrender.com")
+    webapp_url = os.getenv("RENDER_EXTERNAL_URL", "https://telegramweb-gd62.onrender.com")
     try:
         await application.bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(text="Terminal", web_app=WebAppInfo(url=webapp_url))
