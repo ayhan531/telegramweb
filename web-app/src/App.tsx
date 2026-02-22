@@ -1,9 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import WebApp from '@twa-dev/sdk';
 import { Search, BarChart3, Users, PieChart, Activity, TrendingUp, X } from 'lucide-react';
 import axios from 'axios';
 
 const API_BASE = '/api'; // Relative path for production
+
+// Define global shape for Telegram WebApp to avoid TypeScript errors
+declare global {
+  interface Window {
+    Telegram: {
+      WebApp: any;
+    };
+  }
+}
 
 interface Holder { kurum: string; toplam_lot: string; pay: string; }
 interface Broker { kurum: string; lot: string; pay: string; }
@@ -22,10 +30,17 @@ const App: React.FC = () => {
   const [takasData, setTakasData] = useState<{ holders: Holder[] } | null>(null);
 
   useEffect(() => {
-    WebApp.ready();
-    WebApp.expand();
-    const primaryColor = WebApp.themeParams.button_color || '#00f2ff';
-    document.documentElement.style.setProperty('--accent-color', primaryColor);
+    try {
+      const WebApp = window.Telegram?.WebApp;
+      if (WebApp) {
+        WebApp.ready();
+        WebApp.expand();
+        const primaryColor = WebApp.themeParams?.button_color || '#00f2ff';
+        document.documentElement.style.setProperty('--accent-color', primaryColor);
+      }
+    } catch (err) {
+      console.error("Telegram WebApp initialization error:", err);
+    }
   }, []);
 
   const fetchData = useCallback(async (sym: string) => {
