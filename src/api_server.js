@@ -59,11 +59,31 @@ app.get('/api/takas/:symbol', async (req, res) => {
 });
 
 // Serve Frontend
-app.use(express.static(path.join(__dirname, '../web-app/dist')));
+const distPath = path.join(__dirname, '../web-app/dist');
 
-// Wildcard to handle React Router if used, otherwise serves index.html
-app.get(/^(?!\/api).+/, (req, res) => {
-    res.sendFile(path.join(__dirname, '../web-app/dist/index.html'));
+// Check if dist directory exists
+import fs from 'fs';
+if (!fs.existsSync(distPath)) {
+    console.error(`UYARI: Frontend build klasörü bulunamadı: ${distPath}`);
+    console.error('Lütfen "npm run build" komutunu çalıştırdığınızdan emin olun.');
+}
+
+app.use(express.static(distPath));
+
+// Wildcard to handle React Router and ensure index.html is served for all non-API routes
+app.get('*', (req, res) => {
+    // If it's an API request that didn't match above, return 404
+    if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+
+    // Don't serve index.html for missing assets (files with extensions)
+    if (req.path.includes('.') && !req.path.endsWith('.html')) {
+        return res.status(404).send('Asset not found');
+    }
+
+    // Otherwise serve the frontend
+    res.sendFile(path.join(distPath, 'index.html'));
 });
 
 app.listen(PORT, () => {
