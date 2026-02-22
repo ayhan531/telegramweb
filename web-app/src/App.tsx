@@ -12,6 +12,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState('anasayfa');
   const [symbol, setSymbol] = useState('');
   const [akdData, setAkdData] = useState<any>(null); // Dummy data container for AKD page
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     try {
@@ -21,6 +22,10 @@ const App: React.FC = () => {
         WebApp.expand();
         WebApp.setHeaderColor('#000000');
         WebApp.setBackgroundColor('#000000');
+
+        if (WebApp.initDataUnsafe?.user) {
+          setUser(WebApp.initDataUnsafe.user);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -120,11 +125,13 @@ const Anasayfa = ({ onSearch }: { onSearch: (s: string) => void }) => {
             <Edit2 className="w-4 h-4 text-zinc-400" />
           </button>
           <div className="w-[46px] h-[46px] flex-shrink-0 rounded-full bg-gradient-to-br from-red-400 to-red-500 flex items-center justify-center text-white font-bold text-lg border border-red-500/50 shadow-inner">
-            C
+            {user?.first_name ? user.first_name.charAt(0).toUpperCase() : 'B'}
           </div>
         </form>
 
-        <h2 className="text-[22px] font-bold mt-2 tracking-tight">Mutlu pazarlar Cem! ⛅</h2>
+        <h2 className="text-[22px] font-bold mt-2 tracking-tight">
+          {user?.first_name ? `Hoş geldin ${user.first_name}!` : 'Hoş geldiniz!'} {new Date().getDay() === 0 ? '☁️' : '🚀'}
+        </h2>
       </div>
 
       <div className="w-full h-[1px] bg-white/5 mt-2"></div>
