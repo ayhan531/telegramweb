@@ -6,6 +6,7 @@ import { promisify } from 'util';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,7 +63,6 @@ app.get('/api/takas/:symbol', async (req, res) => {
 const distPath = path.join(__dirname, '../web-app/dist');
 
 // Check if dist directory exists
-import fs from 'fs';
 if (!fs.existsSync(distPath)) {
     console.error(`UYARI: Frontend build klasörü bulunamadı: ${distPath}`);
     console.error('Lütfen "npm run build" komutunu çalıştırdığınızdan emin olun.');
