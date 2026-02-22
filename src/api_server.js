@@ -70,8 +70,8 @@ if (!fs.existsSync(distPath)) {
 
 app.use(express.static(distPath));
 
-// Wildcard to handle React Router and ensure index.html is served for all non-API routes
-app.get('*', (req, res) => {
+// Catch-all middleware to handle React Router and ensure index.html is served for all non-API routes
+app.use((req, res, next) => {
     // If it's an API request that didn't match above, return 404
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'API endpoint not found' });
