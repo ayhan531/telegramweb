@@ -13,6 +13,9 @@ const App: React.FC = () => {
   const [symbol, setSymbol] = useState('');
   const [akdData, setAkdData] = useState<any>(null); // Dummy data container for AKD page
   const [user, setUser] = useState<any>(null);
+  const [bultenData, setBultenData] = useState<any>(null);
+  const [fonData, setFonData] = useState<any>(null);
+  const [favorites, setFavorites] = useState<string[]>([]);
 
   useEffect(() => {
     try {
@@ -22,6 +25,12 @@ const App: React.FC = () => {
         WebApp.expand();
         WebApp.setHeaderColor('#000000');
         WebApp.setBackgroundColor('#000000');
+
+        // Add security header to all axios requests
+        axios.interceptors.request.use(config => {
+          config.headers['x-telegram-init-data'] = WebApp.initData;
+          return config;
+        });
 
         if (WebApp.initDataUnsafe?.user) {
           setUser(WebApp.initDataUnsafe.user);
@@ -33,20 +42,44 @@ const App: React.FC = () => {
 
     // Pre-fetch some generic data for the AKD tab
     axios.get(`${API_BASE}/akd/THYAO`).then(res => setAkdData(res.data)).catch(console.error);
+    axios.get(`${API_BASE}/bulten`).then(res => setBultenData(res.data)).catch(console.error);
+    axios.get(`${API_BASE}/fon`).then(res => setFonData(res.data)).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      axios.get(`${API_BASE}/favorites/${user.id}`).then(res => setFavorites(res.data)).catch(console.error);
+    }
+  }, [user]);
+
+  const toggleFavorite = async (s: string) => {
+    if (!user?.id) return;
+    const isFav = favorites.includes(s.toUpperCase());
+    try {
+      if (isFav) {
+        await axios.delete(`${API_BASE}/favorites`, { data: { userId: user.id, symbol: s } });
+        setFavorites(prev => prev.filter(f => f !== s.toUpperCase()));
+      } else {
+        await axios.post(`${API_BASE}/favorites`, { userId: user.id, symbol: s });
+        setFavorites(prev => [...prev, s.toUpperCase()]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const renderContent = () => {
     if (symbol) {
-      return <SymbolDetail symbol={symbol} onBack={() => setSymbol('')} />;
+      return <SymbolDetail symbol={symbol} favorites={favorites} onToggleFavorite={toggleFavorite} onBack={() => setSymbol('')} />;
     }
 
     switch (currentView) {
-      case 'anasayfa': return <Anasayfa onSearch={(s: string) => setSymbol(s)} />;
+      case 'anasayfa': return <Anasayfa user={user} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
       case 'kurumsal': return <Kurumsal akdData={akdData} />;
-      case 'bulten': return <Bulten />;
-      case 'fon': return <Fon />;
+      case 'bulten': return <Bulten data={bultenData} user={user} />;
+      case 'fon': return <Fon data={fonData} />;
       case 'diger': return <Diger />;
-      default: return <Anasayfa onSearch={(s: string) => setSymbol(s)} />;
+      default: return <Anasayfa user={user} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
     }
   };
 
@@ -100,7 +133,7 @@ const ViewTimerBadge = ({ time }: { time: string }) => (
 );
 
 // 1. ANASAYFA
-const Anasayfa = ({ onSearch }: { onSearch: (s: string) => void }) => {
+const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, favorites: string[], onSearch: (s: string) => void, onToggleFavorite: (s: string) => void }) => {
   const [val, setVal] = useState('');
   return (
     <div className="animate-fade-in animate-duration-200">
@@ -136,13 +169,53 @@ const Anasayfa = ({ onSearch }: { onSearch: (s: string) => void }) => {
 
       <div className="w-full h-[1px] bg-white/5 mt-2"></div>
 
-      <div className="flex flex-col items-center justify-center pt-28 text-center px-6">
-        <Star className="w-14 h-14 text-[#222226] mb-4" strokeWidth={1} />
-        <h3 className="text-[17px] font-bold tracking-wide">"Favoriler" Listesi Boş</h3>
-        <p className="text-zinc-500 text-[13px] mt-2 leading-relaxed max-w-[280px]">
-          Hisse ararken yıldız butonuna tıklayarak bu listeye hisse ekleyebilirsiniz.
-        </p>
-        <p className="text-[#ff9d00] text-[13px] mt-1 font-medium">Tüm listelerde toplamda 50 hisse eklenebilir.</p>
+      <div className="p-4 pt-6">
+        <div className="flex justify-between items-center mb-4 px-1">
+          <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Favoriler (BIST/VIOP)</h3>
+          <span className="text-[11px] font-bold text-zinc-600 bg-white/5 px-2 py-0.5 rounded-full">{favorites.length}/50</span>
+        </div>
+
+        {favorites.length === 0 ? (
+          <div className="flex flex-col items-center justify-center pt-20 text-center px-6">
+            <Star className="w-14 h-14 text-[#222226] mb-4" strokeWidth={1} />
+            <h3 className="text-[17px] font-bold tracking-wide">"Favoriler" Listesi Boş</h3>
+            <p className="text-zinc-500 text-[13px] mt-2 leading-relaxed max-w-[280px]">
+              Hisse ararken yıldız butonuna tıklayarak bu listeye hisse ekleyebilirsiniz.
+            </p>
+            <p className="text-[#ff9d00] text-[13px] mt-1 font-medium">Tüm listelerde toplamda 50 hisse eklenebilir.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {favorites.map((fav) => (
+              <FavoriteCard key={fav} symbol={fav} onSelect={onSearch} onRemove={() => onToggleFavorite(fav)} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const FavoriteCard = ({ symbol, onSelect, onRemove }: any) => {
+  const [data, setData] = useState<any>(null);
+
+  useEffect(() => {
+    axios.get(`${API_BASE}/stock/${symbol}`).then(res => setData(res.data)).catch(console.error);
+  }, [symbol]);
+
+  return (
+    <div onClick={() => onSelect(symbol)} className="bg-[#111114] border border-white/10 rounded-2xl p-4 active:scale-[0.98] transition-all relative group">
+      <div className="flex justify-between items-start mb-2">
+        <span className="font-bold text-[15px]">{symbol}</span>
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="text-[#ff9d00]">
+          <Star className="w-4 h-4 fill-[#ff9d00]" />
+        </button>
+      </div>
+      <div className="flex justify-between items-end">
+        <div className="text-[18px] font-bold">{data?.price || '---'}</div>
+        <div className={`text-[11px] font-bold ${data?.change >= 0 ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>
+          {data?.change >= 0 ? '+' : ''}{data?.change?.toFixed(2)}%
+        </div>
       </div>
     </div>
   );
@@ -245,7 +318,7 @@ const Kurumsal = ({ akdData }: { akdData: any }) => {
 };
 
 // 3. BULTEN
-const Bulten = () => (
+const Bulten = ({ data, user }: { data: any, user: any }) => (
   <div className="animate-fade-in">
     <HeaderBar title="Veri Terminali" />
     <ViewTimerBadge time="29:16" />
@@ -254,8 +327,8 @@ const Bulten = () => (
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-black text-[#ffb04f] tracking-tight">Bülten</h1>
         <div className="flex items-center gap-3 relative top-2">
-          <span className="text-zinc-400 text-sm font-medium">22 Şubat Pazar</span>
-          <span className="bg-[#002f1a] text-[#00ff88] text-[11px] font-black px-2.5 py-1 rounded border border-[#00502a] tracking-wider">POZİTİF</span>
+          <span className="text-zinc-400 text-sm font-medium">{data?.date || '22 Şubat Pazar'}</span>
+          <span className="bg-[#002f1a] text-[#00ff88] text-[11px] font-black px-2.5 py-1 rounded border border-[#00502a] tracking-wider">{data?.status || 'POZİTİF'}</span>
           <button className="w-8 h-8 rounded-lg bg-[#111114] border border-white/10 flex items-center justify-center disabled:opacity-50">
             <Copy className="w-4 h-4 text-zinc-400" />
           </button>
@@ -263,38 +336,54 @@ const Bulten = () => (
       </div>
 
       <div className="flex justify-between items-start mb-4">
-        <h2 className="text-xl font-bold tracking-tight">BIST 100</h2>
+        <h2 className="text-xl font-bold tracking-tight">{data?.index_name || 'BIST 100'}</h2>
         <div className="text-right">
-          <div className="text-[22px] font-black leading-none">13934,06</div>
-          <div className="text-[#00ff88] text-sm font-bold mt-1">+129,85 (+0.94%)</div>
+          <div className="text-[22px] font-black leading-none">{data?.price || '13934,06'}</div>
+          <div className={`text-sm font-bold mt-1 ${data?.change?.includes('+') ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>{data?.change || '+0.94%'}</div>
         </div>
       </div>
 
       <p className="text-zinc-400 text-[15px] leading-relaxed mb-6 font-medium">
-        BIST 100 endeksi, günü <span className="text-[#00ff88] font-bold">%0.94 yükselişle 13934,06</span> seviyesinden tamamladı. Gün içerisinde en düşük <span className="text-[#ff3b30] font-bold">13718,14</span>, en yüksek <span className="text-[#00ff88] font-bold">13934,06</span> puanları test edildi. Toplam işlem hacmi <span className="text-[#ffb04f] font-bold">171.4 Milyar TL</span> olarak gerçekleşti.
+        BIST 100 endeksi, günü <span className={`${data?.change?.includes('+') ? 'text-[#00ff88]' : 'text-[#ff3b30]'} font-bold`}>{data?.change || '%0.94'} yükselişle {data?.price || '13934,06'}</span> seviyesinden tamamladı. Gün içerisinde işlem hacmi <span className="text-[#ffb04f] font-bold">171.4 Milyar TL</span> olarak gerçekleşti.
       </p>
 
-      <p className="text-white text-base mb-6 font-medium">Merhaba <span className="font-bold">Cem</span>, iyi hafta sonları! 🎉</p>
+      <p className="text-white text-base mb-6 font-medium tracking-tight">
+        Merhaba <span className="font-extrabold text-[#00ff88]">{user?.first_name || 'Cem'}</span>, iyi hafta sonları! 🎉
+      </p>
 
       <div className="grid grid-cols-2">
         <div className="border border-white/5 rounded-l-xl bg-gradient-to-b from-[#00ff88]/[0.05] to-transparent">
           <div className="text-[#00ff88] text-center py-3 font-bold border-b border-white/5 text-[15px]">Endeksi Yükseltenler</div>
           <div className="flex flex-col">
-            <div className="flex justify-between items-center px-4 py-3 border-b border-white/5"><span className="font-bold text-[14px]">DSTKF</span><span className="text-[#00ff88] font-bold text-sm">+31.9</span></div>
-            <div className="flex justify-between items-center px-4 py-3 border-b border-white/5"><span className="font-bold text-[14px]">ASELS</span><span className="text-[#00ff88] font-bold text-sm">+24.8</span></div>
-            <div className="flex justify-between items-center px-4 py-3 border-b border-white/5"><span className="font-bold text-[14px]">THYAO</span><span className="text-[#00ff88] font-bold text-sm">+18.5</span></div>
-            <div className="flex justify-between items-center px-4 py-3 border-b border-white/5"><span className="font-bold text-[14px]">AKBNK</span><span className="text-[#00ff88] font-bold text-sm">+12.1</span></div>
-            <div className="flex justify-between items-center px-4 py-3"><span className="font-bold text-[14px]">YKBNK</span><span className="text-[#00ff88] font-bold text-sm">+9.2</span></div>
+            {(data?.gainers || [
+              { symbol: "DSTKF", change: "+31.9" },
+              { symbol: "ASELS", change: "+24.8" },
+              { symbol: "THYAO", change: "+18.5" },
+              { symbol: "AKBNK", change: "+12.1" },
+              { symbol: "YKBNK", change: "+9.2" }
+            ]).map((g: any, i: number) => (
+              <div key={i} className={`flex justify-between items-center px-4 py-3 border-b border-white/5 ${i === 4 ? 'border-0' : ''}`}>
+                <span className="font-bold text-[14px]">{g.symbol}</span>
+                <span className="text-[#00ff88] font-bold text-sm">{g.change}</span>
+              </div>
+            ))}
           </div>
         </div>
         <div className="border border-white/5 border-l-0 rounded-r-xl bg-gradient-to-b from-[#ff3b30]/[0.05] to-transparent">
           <div className="text-[#ff3b30] text-center py-3 font-bold border-b border-white/5 text-[15px]">Endeksi Düşürenler</div>
           <div className="flex flex-col">
-            <div className="flex justify-between items-center px-4 py-3 border-b border-white/5"><span className="font-bold text-[14px]">KLRHO</span><span className="text-[#ff3b30] font-bold text-sm">-37.9</span></div>
-            <div className="flex justify-between items-center px-4 py-3 border-b border-white/5"><span className="font-bold text-[14px]">BIMAS</span><span className="text-[#ff3b30] font-bold text-sm">-7.9</span></div>
-            <div className="flex justify-between items-center px-4 py-3 border-b border-white/5"><span className="font-bold text-[14px]">SASA</span><span className="text-[#ff3b30] font-bold text-sm">-5.8</span></div>
-            <div className="flex justify-between items-center px-4 py-3 border-b border-white/5"><span className="font-bold text-[14px]">EKGYO</span><span className="text-[#ff3b30] font-bold text-sm">-4.7</span></div>
-            <div className="flex justify-between items-center px-4 py-3"><span className="font-bold text-[14px]">CCOLA</span><span className="text-[#ff3b30] font-bold text-sm">-3.3</span></div>
+            {(data?.losers || [
+              { symbol: "KLRHO", change: "-37.9" },
+              { symbol: "BIMAS", change: "-7.9" },
+              { symbol: "SASA", change: "-5.8" },
+              { symbol: "EKGYO", change: "-4.7" },
+              { symbol: "CCOLA", change: "-3.3" }
+            ]).map((l: any, i: number) => (
+              <div key={i} className={`flex justify-between items-center px-4 py-3 border-b border-white/5 ${i === 4 ? 'border-0' : ''}`}>
+                <span className="font-bold text-[14px]">{l.symbol}</span>
+                <span className="text-[#ff3b30] font-bold text-sm">{l.change}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -339,7 +428,7 @@ const DigerMenuItem = ({ icon: Icon, title, subtitle, color, bg }: any) => (
 );
 
 // 5. FON
-const Fon = () => (
+const Fon = ({ data }: { data: any }) => (
   <div className="animate-fade-in">
     <HeaderBar title="Veri Terminali" />
     <ViewTimerBadge time="29:08" />
@@ -369,11 +458,15 @@ const Fon = () => (
             </tr>
           </thead>
           <tbody>
-            <FonRow code="KHA" name="PARDUS PORTFÖY İKİN..." val="+10,33%" color="bg-indigo-600" icon="P" />
-            <FonRow code="GAF" name="INVEO PORTFÖY BİRİN..." val="+9,78%" color="bg-blue-600" icon="INVEO" />
-            <FonRow code="AHI" name="ATLAS PORTFÖY BİRİN..." val="+7,97%" color="bg-cyan-600" icon="A" />
-            <FonRow code="RHS" name="ROTA PORTFÖY HİSSE ..." val="+7,40%" color="bg-purple-600" icon="*" />
-            <FonRow code="GMR" name="INVEO PORTFÖY İKİNC..." val="+2,17%" color="bg-blue-600" icon="INVEO" />
+            {(data?.funds || [
+              { code: "KHA", name: "PARDUS PORTFÖY İKİN...", change: "+10,33%", color: "bg-indigo-600", icon: "P" },
+              { code: "GAF", name: "INVEO PORTFÖY BİRİN...", change: "+9,78%", color: "bg-blue-600", icon: "INVEO" },
+              { code: "AHI", name: "ATLAS PORTFÖY BİRİN...", change: "+7,97%", color: "bg-cyan-600", icon: "A" },
+              { code: "RHS", name: "ROTA PORTFÖY HİSSE ...", change: "+7,40%", color: "bg-purple-600", icon: "*" },
+              { code: "GMR", name: "INVEO PORTFÖY İKİNC...", change: "+2,17%", color: "bg-blue-600", icon: "INVEO" }
+            ]).map((f: any, i: number) => (
+              <FonRow key={i} code={f.code} name={f.name} val={f.change} color={f.color} icon={f.icon} />
+            ))}
           </tbody>
         </table>
       </div>
@@ -400,7 +493,7 @@ const FonRow = ({ code, name, val, color, icon }: any) => (
 
 
 // 6. SYMBOL DETAIL VIEW (Original Derinlik/Takas Logic)
-const SymbolDetail = ({ symbol, onBack }: { symbol: string, onBack: () => void }) => {
+const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol: string, favorites: string[], onToggleFavorite: (s: string) => void, onBack: () => void }) => {
   const [stock, setStock] = useState<any>(null);
   const [akd, setAkd] = useState<any>(null);
   const [takas, setTakas] = useState<any>(null);
@@ -426,7 +519,12 @@ const SymbolDetail = ({ symbol, onBack }: { symbol: string, onBack: () => void }
           <div className="bg-[#111114] rounded-2xl p-5 border border-white/5">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h1 className="text-3xl font-black tracking-tight text-white">{symbol.toUpperCase()}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-black tracking-tight text-white">{symbol.toUpperCase()}</h1>
+                  <button onClick={() => onToggleFavorite(symbol)}>
+                    <Star className={`w-6 h-6 ${favorites.includes(symbol.toUpperCase()) ? 'fill-[#ff9d00] text-[#ff9d00]' : 'text-zinc-600'}`} />
+                  </button>
+                </div>
                 <p className="text-xs text-zinc-500 uppercase font-bold tracking-widest mt-1">{stock.name}</p>
               </div>
               <div className="text-right">
