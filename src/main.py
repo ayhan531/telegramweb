@@ -21,15 +21,15 @@ logging.basicConfig(
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
-        "📊 DERINLIK & ANALIZ TERMINALI\n"
+        "📊 FINANS & ANALIZ TERMINALI\n"
         "-----------------------------------\n"
-        "BIST Gerçek Zamanlı Veri ve Analiz Sistemine hoş geldiniz.\n\n"
-        "Aşağıdaki butona tıklayarak derinlik, AKD, takas ve grafiklere anlık olarak erişebilirsiniz.\n\n"
+        "BIST, Kripto ve Emtia piyasalarını anlık takip edebileceğiniz sisteme hoş geldiniz.\n\n"
+        "Aşağıdaki butona tıklayarak derinlik, analiz, takas ve grafiklere (TradingView) anlık olarak erişebilirsiniz.\n\n"
         "KOMUTLAR\n"
-        "/derinlik [SEMBOL] - Piyasa verileri\n"
-        "/grafik [SEMBOL]   - Teknik analiz grafigi\n"
-        "/akd [SEMBOL]      - Aracı Kurum Dağılımı\n"
-        "/yardim           - Detayli dokumantasyon"
+        "/derinlik [SEMBOL] - Piyasa verileri (Örn: THYAO, BTCUSDT)\n"
+        "/grafik [SEMBOL]   - Teknik analiz grafiği\n"
+        "/akd [SEMBOL]      - Aracı Kurum Dağılımı (BIST)\n"
+        "/yardim           - Detaylı dokümantasyon"
     )
     
     # Kullanicinin Render'da yanlislikla "WEBAPP_URL" degiskenini eski .pages.dev olarak 
@@ -52,9 +52,11 @@ async def yardim(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "-----------------------------------\n"
         "Veri sorgulamak için sembol kodunu komutla birlikte giriniz.\n\n"
         "ÖRNEKLER\n"
-        "/derinlik THYAO\n"
+        "/derinlik THYAO (BIST)\n"
+        "/derinlik BTCUSDT (Kripto)\n"
+        "/derinlik XAUUSD (Altın Ons)\n"
         "/grafik EREGL\n\n"
-        "NOT: Veriler 15 dakika gecikmelidir."
+        "NOT: Veriler TradingView üzerinden anlık alınmaktadır."
     )
     await update.message.reply_text(f"```\n{help_text}\n```", parse_mode='MarkdownV2')
 
@@ -129,7 +131,7 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += f"{s['kurum'][:19]:<20} {s['lot']:>14}\n"
     
     text += f"{'-' * 35}\n"
-    text += "Kaynak: Is Yatirim (Anlik)"
+    text += "Kaynak: Matriks/Foreks Analizi (Anlik)"
     
     await update.message.reply_text(f"```\n{text}\n```", parse_mode='MarkdownV2')
 
