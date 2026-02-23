@@ -25,7 +25,7 @@ def detect_exchange(symbol: str):
     
     # Emtia / Forex Kontrolü
     # XAUUSD (Altın), XAGUSD (Gümüş), USOIL, EURUSD vb.
-    forex_commodities = ['XAUUSD', 'XAGUSD', 'USOIL', 'UKOIL', 'EURUSD', 'GBPUSD', 'USDJPY', 'GA']
+    forex_commodities = ['XAUUSD', 'XAGUSD', 'USOIL', 'UKOIL', 'EURUSD', 'GBPUSD', 'USDJPY', 'USDTRY', 'GA']
     if any(fc in symbol for fc in forex_commodities):
         return 'FX_IDC'
     
@@ -35,12 +35,48 @@ def detect_exchange(symbol: str):
 def get_tv_stock_data(symbol: str):
     """
     TradingView üzerinden anlık veri çeker.
+    Gram Altın (GA) için XAUUSD ve USDTRY üzerinden anlık hesaplama yapar.
     """
     try:
         symbol = symbol.upper()
-        # "GA" (Gram Altın)TradingView'da genellikle FX_IDC:XAUUSD/USDTRY*gram_factor veya direkt sembol olarak aranır.
-        # Basitlik için kullanıcı XAUUSD yazdıysa FX_IDC kullanılır.
         
+        # Gram Altın (GA) Özel Hesaplama
+        if symbol == 'GA' or symbol == 'GRAMALTIN':
+            # Ons Altın ve Dolar/TL verilerini çek
+            xau = tv.get_hist(symbol='XAUUSD', exchange='FX_IDC', interval=Interval.in_1_minute, n_bars=1)
+            usdtry = tv.get_hist(symbol='USDTRY', exchange='FX_IDC', interval=Interval.in_1_minute, n_bars=1)
+            
+            if xau is not None and not xau.empty and usdtry is not None and not usdtry.empty:
+                price_xau = float(xau['close'].iloc[-1])
+                price_usdtry = float(usdtry['close'].iloc[-1])
+                
+                # Formül: (Ons / 31.10347) * (USD/TRY)
+                price_ga = (price_xau / 31.10347) * price_usdtry
+                
+                # Önceki günün kapanışını hesapla (yüzde değişim için)
+                xau_d = tv.get_hist(symbol='XAUUSD', exchange='FX_IDC', interval=Interval.in_daily, n_bars=2)
+                usdtry_d = tv.get_hist(symbol='USDTRY', exchange='FX_IDC', interval=Interval.in_daily, n_bars=2)
+                
+                prev_price = price_ga
+                if len(xau_d) >= 2 and len(usdtry_d) >= 2:
+                    prev_ga = (xau_d['close'].iloc[-2] / 31.10347) * usdtry_d['close'].iloc[-2]
+                    prev_price = prev_ga
+                
+                change_pct = ((price_ga - prev_price) / prev_price * 100) if prev_price else 0
+                
+                return {
+                    "price": round(price_ga, 2),
+                    "open": round(price_ga, 2),
+                    "high": round(price_ga, 2),
+                    "low": round(price_ga, 2),
+                    "volume": 0,
+                    "change": round(float(change_pct), 2),
+                    "prev_close": round(float(prev_price), 2),
+                    "name": "Gram Altın",
+                    "exchange": "Hesaplanan",
+                    "currency": "TRY"
+                }
+
         exchange = detect_exchange(symbol)
         
         # tvDatafeed n_bars=1 ile son barı çeker

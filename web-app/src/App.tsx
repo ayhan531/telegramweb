@@ -683,7 +683,8 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
           <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden aspect-square relative">
             <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0c]">
               <iframe
-                src={`https://s.tradingview.com/widgetembed/?frameElementId=tw&symbol=${stock?.exchange || 'BIST'}%3A${symbol}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=1a1a1d&theme=dark`}
+                src={`https://s.tradingview.com/widgetembed/?frameElementId=tw&symbol=${stock?.exchange === 'Hesaplanan' && symbol === 'GA' ? 'FX_IDC%3AXAUUSD' : `${stock?.exchange || 'BIST'}%3A${symbol}`
+                  }&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=1a1a1d&theme=dark`}
                 style={{ width: '100%', height: '100%', border: 'none' }}
               ></iframe>
             </div>
