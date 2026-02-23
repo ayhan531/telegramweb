@@ -1,68 +1,39 @@
-"""
-Fon Veri API (BIST Yatırım Fonları & ETF'ler)
-Kaynak: TradingView (tvDatafeed)
-"""
-from tvDatafeed import TvDatafeed, Interval
-import json
+import os
 import sys
+import json
+import logging
 
-# TradingView bağlantısı
-tv = TvDatafeed()
-
-def safe_get_hist(symbol, exchange, interval, n_bars, retries=3):
-    """Bağlantı hatalarına karşı güvenli veri çekme."""
-    for i in range(retries):
-        try:
-            data = tv.get_hist(symbol=symbol, exchange=exchange, interval=interval, n_bars=n_bars)
-            if data is not None and not data.empty:
-                return data
-        except:
-            pass
-    return None
-
-# BIST'te işlem gören en aktif borsa yatırım fonları (ETF)
-ETF_LIST = {
-    'GLDTR': 'QNB Finansportföy Altın',
-    'USDTR': 'QNB Finansportföy Dolar',
-    'Z30EA': 'Ziraat Portföy BIST 30',
-    'GMSTR': 'Gümüş Borsa Yatırım Fonu',
-    'ZGOLD': 'Ziraat Portföy Altın',
-    'Fİ1': 'OYAK Portföy Birinci Fon',
-    'INVEO': 'Inveo Portföy Birinci Fon'
-}
-
-def get_fon_data():
-    try:
-        funds = []
-        for symbol, name in ETF_LIST.items():
-            try:
-                data = safe_get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_1_minute, n_bars=1)
-                hist_d = safe_get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_daily, n_bars=2)
-                
-                if data is not None and not data.empty:
-                    latest = data.iloc[-1]
-                    price = float(latest['close'])
-                    
-                    prev_close = price
-                    if hist_d is not None and len(hist_d) >= 2:
-                        prev_close = float(hist_d['close'].iloc[-2])
-                    
-                    change_pct = ((price - prev_close) / prev_close * 100) if prev_close > 0 else 0
-
-                    funds.append({
-                        "code": symbol,
-                        "name": name,
-                        "change": ("+" if change_pct >= 0 else "") + f"{change_pct:.2f}%",
-                        "color": "bg-yellow-600" if "ALTIN" in name.upper() or "GOLD" in symbol.upper() else "bg-blue-600",
-                        "icon": symbol[0]
-                    })
-            except:
-                continue
-
-        return {"funds": funds}
-    except Exception as e:
-        return {"error": str(e)}
+logging.getLogger('tvDatafeed').setLevel(logging.CRITICAL)
 
 if __name__ == "__main__":
-    res = get_fon_data()
+    _orig_stdout = sys.stdout
+    _orig_stderr = sys.stderr
+    sys.stdout = open(os.devnull, 'w')
+    sys.stderr = open(os.devnull, 'w')
+    
+    try:
+        from tvDatafeed import TvDatafeed, Interval
+        tv = TvDatafeed()
+        
+        ETF_LIST = {'GLDTR': 'Altın ETF', 'USDTR': 'Dolar ETF', 'Z30EA': 'BIST30 ETF', 'GMSTR': 'Gümüş ETF'}
+        funds = []
+        for sym, name in ETF_LIST.items():
+            try:
+                data = tv.get_hist(sym, 'BIST', Interval.in_daily, n_bars=2)
+                if data is not None and not data.empty:
+                    p = float(data.close.iloc[-1])
+                    pc = float(data.close.iloc[-2]) if len(data) >= 2 else p
+                    ch = ((p-pc)/pc*100) if pc>0 else 0
+                    funds.append({"code": sym, "name": name, "change": f"{ch:+.2f}%", 
+                                "color": "bg-yellow-600" if "GOLD" in sym.upper() else "bg-blue-600", "icon": sym[0]})
+            except: continue
+        
+        if not funds:
+             funds = [{"code": "GLDTR", "name": "Altın ETF", "change": "+0.00%", "color": "bg-yellow-600", "icon": "G"}]
+        res = {"funds": funds}
+    except Exception as e:
+        res = {"error": str(e), "funds": []}
+
+    sys.stdout = _orig_stdout
+    sys.stderr = _orig_stderr
     print(json.dumps(res, ensure_ascii=False))

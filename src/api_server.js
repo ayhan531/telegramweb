@@ -55,8 +55,22 @@ async function getCachedExec(command, cacheKey) {
     if (cache[cacheKey] && (now - cache[cacheKey].timestamp < CACHE_DURATION)) {
         return cache[cacheKey].data;
     }
-    const { stdout } = await execAsync(command);
-    const data = JSON.parse(stdout);
+    const { stdout, stderr } = await execAsync(command);
+
+    // Try to find the last valid JSON in stdout
+    let cleanOutput = stdout.trim();
+    const lines = cleanOutput.split('\n');
+    let data = null;
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+        try {
+            data = JSON.parse(lines[i]);
+            if (data) break;
+        } catch (e) { continue; }
+    }
+
+    if (!data) throw new Error("Output contains no valid JSON");
+
     cache[cacheKey] = { data, timestamp: now };
     return data;
 }
