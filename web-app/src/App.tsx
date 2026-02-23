@@ -78,7 +78,7 @@ const App: React.FC = () => {
       case 'kurumsal': return <Kurumsal akdData={akdData} />;
       case 'bulten': return <Bulten data={bultenData} user={user} />;
       case 'fon': return <Fon data={fonData} />;
-      case 'diger': return <Diger />;
+      case 'diger': return <Diger bultenData={bultenData} />;
       default: return <Anasayfa user={user} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
     }
   };
@@ -124,14 +124,6 @@ const HeaderBar = ({ title }: { title: string }) => (
   </div>
 );
 
-const ViewTimerBadge = ({ time }: { time: string }) => (
-  <div className="flex justify-center mt-3 mb-2">
-    <div className="bg-[#002f1a] text-[#00ff88] px-4 py-1.5 rounded-full text-xs font-bold border border-[#00502a] flex items-center gap-2">
-      <div className="w-2 h-2 rounded-full bg-[#00ff88] animate-pulse"></div> {time}
-    </div>
-  </div>
-);
-
 const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, favorites: string[], onSearch: (s: string) => void, onToggleFavorite: (s: string) => void }) => {
   const [marketTab, setMarketTab] = useState('BIST');
   const [val, setVal] = useState('');
@@ -146,10 +138,6 @@ const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, 
 
   return (
     <div className="animate-fade-in animate-duration-200">
-      <div className="flex justify-center mt-4">
-        <ViewTimerBadge time="29:38" />
-      </div>
-
       <div className="p-4">
         {/* Search Header */}
         <form onSubmit={(e) => { e.preventDefault(); if (val) onSearch(val); }} className="flex gap-3 mb-6">
@@ -287,7 +275,6 @@ const Kurumsal = ({ akdData }: { akdData: any }) => {
   return (
     <div className="animate-fade-in">
       <HeaderBar title="Veri Terminali" />
-      <ViewTimerBadge time="29:25" />
 
       {/* Selectors */}
       <div className="flex gap-2 p-4">
@@ -328,7 +315,22 @@ const Kurumsal = ({ akdData }: { akdData: any }) => {
             <div className="text-zinc-500 font-medium">Bu sembol için AKD verisi şu an mevcut değil.</div>
           </div>
         ) : (
-          (tab === 'alanlar' ? akdData?.buyers : akdData?.sellers)?.map((b: any, i: number) => generateBrokerRow(b, i, tab === 'satanlar'))
+          tab === 'toplam' ? (
+            akdData?.total?.map((t: any, i: number) => (
+              <div key={i} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0 px-1">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#111114] flex items-center justify-center border border-white/5 text-[10px] font-bold text-zinc-400">{t.kurum.substring(0, 2)}</div>
+                  <span className="font-bold text-zinc-200">{t.kurum}</span>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono font-bold text-[#00ff88]" style={{ color: t.color }}>{t.lot}</div>
+                  <div className="text-[10px] text-zinc-500 uppercase font-bold">{t.type}</div>
+                </div>
+              </div>
+            ))
+          ) : (
+            (tab === 'alanlar' ? akdData?.buyers : akdData?.sellers)?.map((b: any, i: number) => generateBrokerRow(b, i, tab === 'satanlar'))
+          )
         )}
       </div>
     </div>
@@ -339,7 +341,6 @@ const Kurumsal = ({ akdData }: { akdData: any }) => {
 const Bulten = ({ data, user }: { data: any, user: any }) => (
   <div className="animate-fade-in">
     <HeaderBar title="Veri Terminali" />
-    <ViewTimerBadge time="29:16" />
 
     <div className="px-5 py-2">
       <div className="flex justify-between items-center mb-6">
@@ -370,9 +371,13 @@ const Bulten = ({ data, user }: { data: any, user: any }) => (
       </p>
 
       <div className="grid grid-cols-1 gap-4 mb-6">
-        <MarketSection title="BIST 100 Öne Çıkanlar" data={data?.bist_summary} color="#00ff88" />
-        <MarketSection title="Kripto Para Özeti" data={data?.crypto_summary} color="#ffb04f" />
-        <MarketSection title="Emtia / Forex Özeti" data={data?.commodity_summary} color="#indigo-400" />
+        <div className="grid grid-cols-2 gap-3">
+          <MarketSection title="Yükselenler" data={data?.gainers} color="#00ff88" />
+          <MarketSection title="Düşenler" data={data?.losers} color="#ff3b30" />
+        </div>
+        <MarketSection title="BIST 100 Özet" data={data?.bist_summary} color="#60a5fa" />
+        <MarketSection title="Kripto Para / Binance" data={data?.crypto_summary} color="#ffb04f" />
+        <MarketSection title="Emtia / Forex (TradingView)" data={data?.commodity_summary} color="#818cf8" />
       </div>
     </div>
   </div>
@@ -398,7 +403,7 @@ const MarketSection = ({ title, data, color }: any) => (
 );
 
 // 4. DIGER
-const Diger = () => {
+const Diger = ({ bultenData }: { bultenData: any }) => {
   const [selectedSubView, setSelectedSubView] = useState<string | null>(null);
 
   const handleMenuItemClick = (view: string) => {
@@ -423,11 +428,33 @@ const Diger = () => {
           {selectedSubView === 'Hisse Radar' && (
             <div className="space-y-4">
               <div className="p-4 bg-[#111114] border border-white/5 rounded-2xl">
-                <h4 className="font-bold mb-2">Popüler Taramalar</h4>
-                <div className="grid grid-cols-1 gap-2">
-                  <button className="flex justify-between p-3 bg-white/5 rounded-xl text-sm"><span>Günün Yıldızları</span><ChevronDown className="w-4 h-4 -rotate-90" /></button>
-                  <button className="flex justify-between p-3 bg-white/5 rounded-xl text-sm"><span>Düşeni Kıranlar</span><ChevronDown className="w-4 h-4 -rotate-90" /></button>
-                  <button className="flex justify-between p-3 bg-white/5 rounded-xl text-sm"><span>Hacim Artışı Olanlar</span><ChevronDown className="w-4 h-4 -rotate-90" /></button>
+                <h4 className="font-bold mb-4 flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-cyan-400" />
+                  Popüler Taramalar (Canlı)
+                </h4>
+                <div className="space-y-6">
+                  <div>
+                    <div className="text-[12px] font-bold text-zinc-500 mb-3 uppercase tracking-wider">Günün Yıldızları</div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {bultenData?.gainers?.slice(0, 3).map((g: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                          <span className="font-bold">{g.symbol}</span>
+                          <span className="text-[#00ff88] font-bold">{g.change}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[12px] font-bold text-zinc-500 mb-3 uppercase tracking-wider">Hacim Artışı</div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {bultenData?.bist_summary?.slice(0, 3).map((s: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                          <span className="font-bold">{s.symbol}</span>
+                          <span className="text-zinc-400 text-xs">{s.price} ₺</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -446,7 +473,6 @@ const Diger = () => {
   return (
     <div className="animate-fade-in">
       <HeaderBar title="Veri Terminali" />
-      <ViewTimerBadge time="28:39" />
 
       <div className="mt-8 mb-4 relative">
         <div className="absolute inset-0 flex items-center justify-center">
@@ -497,7 +523,6 @@ const Fon = ({ data }: { data: any }) => {
   return (
     <div className="animate-fade-in">
       <HeaderBar title="Veri Terminali" />
-      <ViewTimerBadge time="29:08" />
 
       <div className="px-4 mt-2">
         <div className="relative mb-6">

@@ -22,24 +22,21 @@ def safe_get_hist(symbol, exchange, interval, n_bars, retries=3):
 
 # BIST'te işlem gören en aktif borsa yatırım fonları (ETF)
 ETF_LIST = {
-    'GLDTR': 'QNB Altın Fonu',
-    'USDTR': 'QNB Dolar Fonu',
+    'GLDTR': 'QNB Finansportföy Altın',
+    'USDTR': 'QNB Finansportföy Dolar',
     'Z30EA': 'Ziraat Portföy BIST 30',
     'GMSTR': 'Gümüş Borsa Yatırım Fonu',
     'ZGOLD': 'Ziraat Portföy Altın',
+    'Fİ1': 'OYAK Portföy Birinci Fon',
+    'INVEO': 'Inveo Portföy Birinci Fon'
 }
 
 def get_fon_data():
-    """
-    BIST ETF'lerinin gerçek verilerini TradingView üzerinden çeker.
-    """
     try:
         funds = []
         for symbol, name in ETF_LIST.items():
             try:
-                # 1 dakikalık anlık fiyat
                 data = safe_get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_1_minute, n_bars=1)
-                # Günlük değişim için 2 bar
                 hist_d = safe_get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_daily, n_bars=2)
                 
                 if data is not None and not data.empty:
