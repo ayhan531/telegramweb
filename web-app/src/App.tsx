@@ -415,59 +415,7 @@ const Diger = ({ bultenData }: { bultenData: any }) => {
   };
 
   if (selectedSubView) {
-    return (
-      <div className="animate-fade-in pb-20">
-        <div className="flex items-center gap-3 p-4 border-b border-white/5 sticky top-0 bg-black/80 backdrop-blur-md z-10">
-          <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/10 active:bg-white/20 transition-colors">
-            <ArrowLeft className="w-6 h-6 text-white" />
-          </button>
-          <span className="font-bold text-lg text-white">{selectedSubView}</span>
-        </div>
-
-        <div className="p-4">
-          {selectedSubView === 'Hisse Radar' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-[#111114] border border-white/5 rounded-2xl">
-                <h4 className="font-bold mb-4 flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-cyan-400" />
-                  Popüler Taramalar (Canlı)
-                </h4>
-                <div className="space-y-6">
-                  <div>
-                    <div className="text-[12px] font-bold text-zinc-500 mb-3 uppercase tracking-wider">Günün Yıldızları</div>
-                    <div className="grid grid-cols-1 gap-2">
-                      {bultenData?.gainers?.slice(0, 3).map((g: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/5">
-                          <span className="font-bold">{g.symbol}</span>
-                          <span className="text-[#00ff88] font-bold">{g.change}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[12px] font-bold text-zinc-500 mb-3 uppercase tracking-wider">Hacim Artışı</div>
-                    <div className="grid grid-cols-1 gap-2">
-                      {bultenData?.bist_summary?.slice(0, 3).map((s: any, i: number) => (
-                        <div key={i} className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/5">
-                          <span className="font-bold">{s.symbol}</span>
-                          <span className="text-zinc-400 text-xs">{s.price} ₺</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          {selectedSubView !== 'Hisse Radar' && (
-            <div className="flex flex-col items-center justify-center pt-20 text-center px-6">
-              <Activity className="w-12 h-12 text-zinc-800 mb-4" />
-              <div className="text-zinc-500 font-medium">{selectedSubView} için veri terminali bağlantısı kuruluyor...</div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
+    return <SubViewDetail view={selectedSubView} onBack={handleBack} bultenData={bultenData} />;
   }
 
   return (
@@ -708,6 +656,129 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
                 style={{ width: '100%', height: '100%', border: 'none' }}
               ></iframe>
             </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ======================== SUB VIEW DETAIL ========================
+const SubViewDetail = ({ view, onBack, bultenData }: { view: string, onBack: () => void, bultenData: any }) => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let category = '';
+    if (view === 'Teknik Tarama') category = 'teknik';
+    else if (view === 'AKD Tarama') category = 'akd';
+    else if (view === 'KAP Ajan') category = 'kap';
+    else if (view === 'Takas Tarama') category = 'akd'; // Takas için de AKD benzeri tarama kullanıyoruz
+
+    if (category) {
+      setLoading(true);
+      axios.get(`${API_BASE}/scan/${category}`)
+        .then(res => setData(res.data.results))
+        .catch(err => console.error(err))
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, [view]);
+
+  return (
+    <div className="animate-fade-in pb-20">
+      <div className="flex items-center gap-3 p-4 border-b border-white/5 sticky top-0 bg-black/80 backdrop-blur-md z-10">
+        <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-white/10 active:bg-white/20 transition-colors">
+          <ArrowLeft className="w-6 h-6 text-white" />
+        </button>
+        <span className="font-bold text-lg text-white">{view}</span>
+      </div>
+
+      <div className="p-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center pt-20">
+            <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin mb-4" />
+            <div className="text-zinc-500 font-medium">Veriler güncelleniyor...</div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {view === 'Hisse Radar' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-[#111114] border border-white/5 rounded-2xl">
+                  <h4 className="font-bold mb-4 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-cyan-400" />
+                    Popüler Taramalar (Canlı)
+                  </h4>
+                  <div className="space-y-6">
+                    <div>
+                      <div className="text-[12px] font-bold text-zinc-500 mb-3 uppercase tracking-wider">Günün Yıldızları</div>
+                      <div className="grid grid-cols-1 gap-2">
+                        {bultenData?.gainers?.slice(0, 3).map((g: any, i: number) => (
+                          <div key={i} className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                            <span className="font-bold">{g.symbol}</span>
+                            <span className="text-[#00ff88] font-bold">{g.change}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[12px] font-bold text-zinc-500 mb-3 uppercase tracking-wider">Hacim Artışı</div>
+                      <div className="grid grid-cols-1 gap-2">
+                        {bultenData?.bist_summary?.slice(0, 3).map((s: any, i: number) => (
+                          <div key={i} className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                            <span className="font-bold">{s.symbol}</span>
+                            <span className="text-zinc-400 text-xs">{s.price} ₺</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {view === 'Teknik Tarama' && data?.map((item: any, i: number) => (
+              <div key={i} className="bg-[#111114] border border-white/5 p-4 rounded-2xl flex justify-between items-center">
+                <div>
+                  <div className="font-bold text-white text-[16px]">{item.symbol}</div>
+                  <div className="text-xs text-zinc-500 mt-1">Fiyat: {item.price} ₺</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block" style={{ backgroundColor: `${item.color}20`, color: item.color, border: `1px solid ${item.color}40` }}>
+                    {item.status}
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-1 font-mono">RSI: {item.rsi}</div>
+                </div>
+              </div>
+            ))}
+
+            {(view === 'AKD Tarama' || view === 'Takas Tarama') && data?.map((item: any, i: number) => (
+              <div key={i} className="bg-[#111114] border border-white/5 p-4 rounded-2xl flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-400 font-bold border border-white/5">{item.kurum.substring(0, 1)}</div>
+                  <div className="font-bold text-white">{item.kurum}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-[15px]" style={{ color: item.color }}>{item.net_hacim}</div>
+                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-tighter" style={{ color: item.color }}>{item.yon}</div>
+                </div>
+              </div>
+            ))}
+
+            {view === 'KAP Ajan' && (
+              <div className="space-y-3">
+                {data?.map((item: any, i: number) => (
+                  <div key={i} className={`p-4 rounded-2xl border ${item.urgent ? 'bg-red-900/10 border-red-500/20' : 'bg-[#111114] border-white/5'}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${item.urgent ? 'bg-red-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>{item.source}</span>
+                      <span className="text-[11px] text-zinc-500 font-mono">{item.time}</span>
+                    </div>
+                    <div className={`text-[14px] font-medium leading-relaxed ${item.urgent ? 'text-red-200' : 'text-zinc-200'}`}>{item.title}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -119,6 +119,18 @@ app.get('/api/fon', async (req, res) => {
     }
 });
 
+// Tarama Veri Endpoint'i
+app.get('/api/scan/:category', async (req, res) => {
+    const { category } = req.params;
+    try {
+        const data = await getCachedExec(`python3 api/scanner_api.py ${category}`, `scan_${category}`);
+        res.json(data);
+    } catch (error) {
+        console.error('Tarama API Hatası:', error);
+        res.status(500).json({ error: 'Tarama verisi çekilemedi' });
+    }
+});
+
 // --- Favoriler Endpoint'leri ---
 
 app.get('/api/favorites/:userId', (req, res) => {
