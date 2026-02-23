@@ -24,7 +24,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📊 FINANS & ANALIZ TERMINALI\n"
         "-----------------------------------\n"
         "BIST, Kripto ve Emtia piyasalarını anlık takip edebileceğiniz sisteme hoş geldiniz.\n\n"
-        "Aşağıdaki butona tıklayarak derinlik, analiz, takas ve grafiklere (TradingView) anlık olarak erişebilirsiniz.\n\n"
+        "Aşağıdaki butona tıklayarak derinlik, analiz, takas ve grafiklere (Foreks/Matriks) anlık olarak erişebilirsiniz.\n\n"
         "KOMUTLAR\n"
         "/derinlik [SEMBOL] - Piyasa verileri (Örn: THYAO, BTCUSDT)\n"
         "/grafik [SEMBOL]   - Teknik analiz grafiği\n"
@@ -56,7 +56,7 @@ async def yardim(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/derinlik BTCUSDT (Kripto)\n"
         "/derinlik XAUUSD (Altın Ons)\n"
         "/grafik EREGL\n\n"
-        "NOT: Veriler TradingView üzerinden anlık alınmaktadır."
+        "NOT: Veriler Foreks (Bigpara) üzerinden anlık alınmaktadır."
     )
     await update.message.reply_text(f"```\n{help_text}\n```", parse_mode='MarkdownV2')
 
@@ -83,7 +83,7 @@ async def derinlik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{'Dusuk:':<15} {data['low']:.2f}\n"
         f"{'Hacim:':<15} {data['volume']:,}\n"
         f"{'-' * 30}\n"
-        f"Kaynak: TradingView (Anlik)"
+        f"Kaynak: Foreks (Anlik)"
     )
     await update.message.reply_text(f"```\n{text}\n```", parse_mode='MarkdownV2')
 
@@ -101,7 +101,7 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     chart_path = f"{symbol}_chart.png"
     if create_stock_chart(hist, symbol, chart_path):
-        caption = f"TEKNIK ANALIZ: {symbol}\nKaynak: TradingView"
+        caption = f"TEKNIK ANALIZ: {symbol}\nKaynak: Foreks (Bigpara)"
         await update.message.reply_photo(photo=open(chart_path, 'rb'), caption=f"```\n{caption}\n```", parse_mode='MarkdownV2')
         os.remove(chart_path)
     else:

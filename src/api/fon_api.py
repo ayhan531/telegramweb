@@ -1,27 +1,33 @@
 import os
 import sys
 import json
-import logging
+import requests
+from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 
-logging.getLogger('tvDatafeed').setLevel(logging.CRITICAL)
-
-def get_etf_data(tv, sym):
+def get_fon_data(code):
     try:
-        data = tv.get_hist(symbol=sym, exchange='FX_IDC', interval=Interval.in_daily, n_bars=2)
-        if data is not None and not data.empty:
-            p = float(data.close.iloc[-1])
-            pc = float(data.close.iloc[-2]) if len(data) >= 2 else p
-            ch = ((p - pc) / pc * 100) if pc > 0 else 0
+        url = f"https://bigpara.hurriyet.com.tr/borsa/hisse-fiyatlari/{code.upper()}-detay/" # Fonlar da benzer url yapısına sahip olabiliyor veya TEFAS
+        # TEFAS genelde tercih edilir ama Bigpara üzerinden de deniyoruz
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, 'lxml')
+        
+        price_tag = soup.select_one('.hisseProcessBar .value')
+        change_tag = soup.select_one('.hisseProcessBar .item.percent span')
+        
+        if price_tag:
+            p = float(price_tag.text.strip().replace('.', '').replace(',', '.'))
+            ch = float(change_tag.text.strip().replace('%', '').replace(',', '.')) if change_tag else 0.0
             return {
-                "code": sym, 
-                "name": sym, # Basitleştirilmiş
-                "change": f"{ch:+.2f}%", 
-                "color": "bg-yellow-600" if "GOLD" in sym.upper() or "XAU" in sym.upper() else "bg-blue-600",
-                "icon": sym[0]
+                "code": code.upper(),
+                "name": code.upper(),
+                "change": f"{ch:+.2f}%",
+                "color": "bg-yellow-600" if "GOLD" in code.upper() else "bg-blue-600",
+                "icon": code[0]
             }
-    except:
-        return None
+    except: pass
+    return None
 
 if __name__ == "__main__":
     _orig_stdout = sys.stdout
@@ -30,13 +36,9 @@ if __name__ == "__main__":
     sys.stderr = open(os.devnull, 'w')
     
     try:
-        from tvDatafeed import TvDatafeed, Interval
-        tv = TvDatafeed()
-        
-        etf_list = ['GLDTR', 'USDTR', 'GUMUS', 'ZRE20', 'KCHOL', 'THYAO'] # Örnek liste
-        
+        etf_list = ['GLDTR', 'USDTR', 'GUMUS', 'ZRE20', 'KCHOL']
         with ThreadPoolExecutor(max_workers=5) as executor:
-            funds = list(executor.map(lambda s: get_etf_data(tv, s), etf_list))
+            funds = list(executor.map(get_fon_data, etf_list))
         
         funds = [f for f in funds if f is not None]
         res = {"funds": funds}

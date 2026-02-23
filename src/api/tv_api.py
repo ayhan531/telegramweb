@@ -1,24 +1,107 @@
 import os
 import sys
 import json
-import logging
+import requests
+from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 
-logging.getLogger('tvDatafeed').setLevel(logging.CRITICAL)
-
-def detect_exchange(symbol: str):
-    symbol = symbol.upper()
-    crypto = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'DOGE', 'SHIB', 'LINK']
-    if any(c in symbol for c in crypto) or symbol.endswith('USDT'): return 'BINANCE'
-    forex = ['XAUUSD', 'XAGUSD', 'USOIL', 'UKOIL', 'EURUSD', 'GBPUSD', 'USDJPY', 'USDTRY', 'GA']
-    if any(fc in symbol for fc in forex): return 'FX_IDC'
-    return 'BIST'
-
-def fetch_one(tv, symbol, exchange):
+def get_bigpara_data(symbol):
     try:
-        from tvDatafeed import Interval
-        return tv.get_hist(symbol, exchange, Interval.in_1_minute, 1)
-    except: return None
+        url = f"https://bigpara.hurriyet.com.tr/borsa/hisse-fiyatlari/{symbol.upper()}-detay/"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, 'lxml')
+        
+        price_tag = soup.select_one('.hisseProcessBar .value')
+        change_tag = soup.select_one('.hisseProcessBar .item.percent span')
+        name_tag = soup.select_one('.hisse-detay-header h1')
+        
+        stats = soup.select('.piyasaBox ul')
+        low, high, open_val, volume = "0", "0", "0", "0"
+        for s in stats:
+            cap_tag = s.select_one('.cap')
+            if not cap_tag: continue
+            cap = cap_tag.text.strip().lower()
+            val_tag = s.select_one('.area2') or s.select_one('.area1')
+            if not val_tag: continue
+            val = val_tag.text.strip()
+            if 'düşük' in cap: low = val
+            elif 'yüksek' in cap: high = val
+            elif 'açılış' in cap: open_val = val
+        
+        vol_tag = soup.select_one('.hisseProcessBar li:nth-of-type(3) span b')
+        if vol_tag: volume = vol_tag.text.strip()
+
+        if price_tag:
+            p = float(price_tag.text.strip().replace('.', '').replace(',', '.'))
+            ch = 0.0
+            if change_tag:
+                try:
+                    ch = float(change_tag.text.strip().replace('%', '').replace(',', '.'))
+                except: pass
+                
+            return {
+                "price": p,
+                "change": ch,
+                "name": name_tag.text.strip() if name_tag else symbol,
+                "exchange": "BIST",
+                "low": low,
+                "high": high,
+                "open": open_val,
+                "volume": volume
+            }
+    except Exception as e:
+        return {"error": str(e)}
+    return {"error": "Sembol bulunamadı (HTML parsing hatası)"}
+
+def get_gram_gold():
+    try:
+        url = "https://bigpara.hurriyet.com.tr/altin/gram-altin-fiyati/"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, 'lxml')
+        
+        price_tag = soup.select_one('.detay-fiyat-top .item2 span:nth-of-type(2)')
+        if not price_tag:
+             price_tag = soup.select_one('.up .value') or soup.select_one('.dw .value')
+
+        if price_tag:
+            p = float(price_tag.text.strip().replace('.', '').replace(',', '.'))
+            return {
+                "price": p,
+                "change": 0.0,
+                "name": "Gram Altın",
+                "exchange": "Foreks"
+            }
+    except:
+        pass
+    return {"error": "Altın verisi alınamadı"}
+
+def get_tv_stock_data(symbol):
+    """Alias for Telegram Bot compatibility"""
+    data = get_bigpara_data(symbol)
+    if "error" in data:
+        return None
+    # Adjusting format for main.py expectation
+    return {
+        "name": data.get("name", symbol),
+        "price": data.get("price", 0.0),
+        "currency": "TRY",
+        "open": float(data.get("open", "0").replace(',', '.')),
+        "high": float(data.get("high", "0").replace(',', '.')),
+        "low": float(data.get("low", "0").replace(',', '.')),
+        "volume": int(data.get("volume", "0").replace('.', '').replace(',', '') or 0)
+    }
+
+def get_tv_stock_history(symbol):
+    """Simple history provider (returns last price as 1-day bar for now or uses yfinance)"""
+    try:
+        import yfinance as yf
+        s = f"{symbol.upper()}.IS"
+        data = yf.download(s, period="1mo", interval="1d", progress=False)
+        return data
+    except:
+        return None
 
 if __name__ == "__main__":
     _orig_stdout = sys.stdout
@@ -29,28 +112,10 @@ if __name__ == "__main__":
     symbol = sys.argv[1].upper() if len(sys.argv) > 1 else 'THYAO'
     
     try:
-        from tvDatafeed import TvDatafeed, Interval
-        tv = TvDatafeed()
-        
         if symbol in ['GA', 'GRAMALTIN']:
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                f1 = executor.submit(fetch_one, tv, 'XAUUSD', 'FX_IDC')
-                f2 = executor.submit(fetch_one, tv, 'USDTRY', 'FX_IDC')
-                xau = f1.result()
-                usd = f2.result()
-            
-            if xau is not None and usd is not None:
-                p = (xau.close.iloc[-1] / 31.10347) * usd.close.iloc[-1]
-                res = {"price": round(p, 2), "change": 0.0, "name": "Gram Altın", "exchange": "Calc"}
-            else: res = {"error": "GA veri yok"}
+            res = get_gram_gold()
         else:
-            ex = detect_exchange(symbol)
-            data = tv.get_hist(symbol, ex, Interval.in_1_minute, n_bars=1)
-            if data is not None and not data.empty:
-                latest = data.iloc[-1]
-                res = {"price": round(float(latest.close), 2), "change": 0.0, "name": symbol, "exchange": ex}
-            else:
-                res = {"error": "Sembol bulunamadı"}
+            res = get_bigpara_data(symbol)
     except Exception as e:
         res = {"error": str(e)}
 
