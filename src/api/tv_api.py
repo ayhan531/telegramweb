@@ -1,71 +1,69 @@
-from tvDatafeed import TvDatafeed, Interval
-import os
-from dotenv import load_dotenv
-# Load environment variables from root
-current_dir = os.path.dirname(os.path.abspath(__file__)) # src/api
-root_dir = os.path.dirname(os.path.dirname(current_dir)) # root
-load_dotenv(os.path.join(root_dir, '.env'))
-
-# TradingView bağlantısını başlat
-username = os.getenv("TV_USERNAME")
-password = os.getenv("TV_PASSWORD")
-
-tv = TvDatafeed(username, password)
+"""
+Hisse Senedi Veri API'si
+Kaynak: Yahoo Finance (ücretsiz, gerçek anlık veri)
+"""
+import yfinance as yf
+import requests
+import json
+import sys
 
 def get_tv_stock_data(symbol: str):
+    """
+    Hisse senedi anlık verisini çeker.
+    BIST sembolü otomatik olarak .IS eki ile Yahoo Finance'den alınır.
+    """
     try:
-        data = tv.get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_1_minute, n_bars=1)
-        if data is None or data.empty:
-            return None
-        latest = data.iloc[-1]
+        yf_symbol = f"{symbol.upper()}.IS"
+        ticker = yf.Ticker(yf_symbol)
+        fi = ticker.fast_info
+
+        price = fi['last_price']
+        prev_close = fi['previous_close']
+        change_pct = ((price - prev_close) / prev_close) * 100 if prev_close else 0
+
         return {
-            "price": latest['close'],
-            "open": latest['open'],
-            "high": latest['high'],
-            "low": latest['low'],
-            "volume": latest['volume'],
-            "change": 0.0,
-            "name": symbol,
+            "price": round(float(price), 2),
+            "open": round(float(fi.get('open', price)), 2),
+            "high": round(float(fi.get('day_high', price)), 2),
+            "low": round(float(fi.get('day_low', price)), 2),
+            "volume": int(fi.get('last_volume', 0)),
+            "change": round(float(change_pct), 2),
+            "prev_close": round(float(prev_close), 2),
+            "year_high": round(float(fi.get('year_high', 0)), 2),
+            "year_low": round(float(fi.get('year_low', 0)), 2),
+            "market_cap": fi.get('market_cap'),
+            "name": symbol.upper(),
             "currency": "TRY"
         }
     except Exception as e:
-        print(f"TradingView Hatası: {e}")
+        print(f"Hisse Veri Hatası ({symbol}): {e}", file=sys.stderr)
         return None
 
-def get_tv_akd_data(symbol: str):
-    try:
-        data = tv.get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_1_minute, n_bars=100)
-        if data is None or data.empty:
-            return None
-        buy_vol = data[data['close'] > data['open']]['volume'].sum()
-        sell_vol = data[data['close'] < data['open']]['volume'].sum()
-        total_vol = data['volume'].sum()
-        net_vol = buy_vol - sell_vol
-        return {
-            "net_volume": net_vol,
-            "buy_ratio": (buy_vol / total_vol) * 100 if total_vol > 0 else 0,
-            "sell_ratio": (sell_vol / total_vol) * 100 if total_vol > 0 else 0,
-            "total_volume": total_vol
-        }
-    except Exception as e:
-        print(f"AKD Simülasyon Hatası: {e}")
-        return None
 
 def get_tv_stock_history(symbol: str, n_bars=100):
+    """
+    Hisse senedi geçmiş verisini çeker (günlük).
+    """
     try:
-        data = tv.get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_daily, n_bars=n_bars)
-        return data
+        yf_symbol = f"{symbol.upper()}.IS"
+        ticker = yf.Ticker(yf_symbol)
+        # n_bars ~= kaç günlük veri
+        period = f"{max(n_bars, 30)}d"
+        hist = ticker.history(period=period, interval='1d')
+        if hist.empty:
+            return None
+        return hist.tail(n_bars)
     except Exception as e:
-        print(f"TradingView Hatası: {e}")
+        print(f"Geçmiş Veri Hatası ({symbol}): {e}", file=sys.stderr)
         return None
 
+
 if __name__ == "__main__":
-    import sys
-    import json
     if len(sys.argv) > 1:
         sym = sys.argv[1].upper()
         res = get_tv_stock_data(sym)
         if res:
+            # NaN değerleri temizle
             for k, v in res.items():
                 if isinstance(v, float) and (v != v):
                     res[k] = None

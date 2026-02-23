@@ -1,53 +1,54 @@
-import requests
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-from bs4 import BeautifulSoup
-import os
+"""
+Fon Veri API (BIST Yatırım Fonları & ETF'ler)
+Kaynak: Yahoo Finance (ücretsiz, gerçek anlık veri)
+"""
+import yfinance as yf
 import json
+import sys
+
+# BIST'te işlem gören en aktif borsa yatırım fonları (ETF)
+ETF_LIST = {
+    'GLDTR.IS': 'QNB Altın Fonu',
+    'USDTR.IS': 'QNB Dolar Fonu',
+    'Z30EA.IS': 'Ziraat Portföy BIST 30',
+    'GMSTR.IS': 'Gümüş Borsa Yatırım Fonu',
+    'ZGOLD.IS': 'Ziraat Portföy Altın',
+}
 
 def get_fon_data():
     """
-    Ekonomi portalları üzerinden popüler fon verilerini çeker.
+    BIST'te işlem gören fonların (ETF) gerçek anlık verilerini çeker.
     """
     try:
-        url = "https://kur.doviz.com/fonlar"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-        
-        response = requests.get(url, headers=headers, verify=False)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        funds = []
-        
-        # doviz.com structure: table tbody tr
-        rows = soup.select("table tbody tr")
-        
-        # Bot ekran görüntüsündeki gibi popüler fonları veya en çok artanları alalım
-        for row in rows[:15]:
-            cols = row.select("td")
-            if len(cols) >= 3:
-                code = cols[0].text.strip()
-                name = cols[1].text.strip()
-                change = cols[2].text.strip()
-                
-                # Sadece hisse senedi yoğun veya popüler olanları filtreleyebiliriz 
-                # ama kullanıcı "gerçek veri" istediği için listedekileri veriyoruz.
-                funds.append({
-                    "code": code,
-                    "name": name if len(name) < 25 else name[:22] + "...",
-                    "change": ("+" if not change.startswith("-") else "") + change,
-                    "color": "bg-blue-600", # Varsayılan renk
-                    "icon": code[0]
-                })
+        symbols = list(ETF_LIST.keys())
+        data = yf.download(symbols, period='2d', interval='1d', progress=False, group_by='ticker')
 
-        if not funds:
-             return {"error": "Veri kazınamadı"}
-             
+        funds = []
+
+        for sym in symbols:
+            try:
+                if sym in data:
+                    s_data = data[sym]
+                    if not s_data.empty:
+                        price = float(s_data['Close'].iloc[-1])
+                        prev_price = float(s_data['Close'].iloc[-2]) if len(s_data) > 1 else price
+                        change_pct = ((price - prev_price) / prev_price * 100) if prev_price > 0 else 0
+
+                        code = sym.replace('.IS', '')
+                        funds.append({
+                            "code": code,
+                            "name": ETF_LIST.get(sym, code),
+                            "change": ("+" if change_pct >= 0 else "") + f"{change_pct:.2f}%",
+                            "color": "bg-yellow-600" if "ALTIN" in ETF_LIST[sym].upper() or "GOLD" in sym.upper() else "bg-blue-600",
+                            "icon": code[0]
+                        })
+            except:
+                continue
+
         return {"funds": funds}
     except Exception as e:
         return {"error": str(e)}
 
 if __name__ == "__main__":
     res = get_fon_data()
-    print(json.dumps(res))
+    print(json.dumps(res, ensure_ascii=False))
