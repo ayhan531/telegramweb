@@ -57,10 +57,11 @@ if __name__ == "__main__":
         res = {
             "index_name": "BIST 100", "price": idx_p, "change": idx_c, "status": status,
             "date": datetime.now().strftime("%d %m %Y"),
-            "bist_summary": bist_sum or [{"symbol": "THY", "price": "318,50", "change": "+0.00%"}],
-            "crypto_summary": crypto_sum or [{"symbol": "BTC", "price": "66.000,00", "change": "+0.00%"}],
-            "commodity_summary": comm_sum or [{"symbol": "Altın", "price": "5.000,00", "change": "+0.00%"}],
-            "gainers": bist_sum[:3], "losers": bist_sum[-3:]
+            "bist_summary": bist_sum,
+            "crypto_summary": crypto_sum,
+            "commodity_summary": comm_sum,
+            "gainers": bist_sum[:5] if bist_sum else [], 
+            "losers": bist_sum[-5:] if bist_sum else []
         }
     except Exception as e:
         res = {"error": str(e), "bist_summary": [], "crypto_summary": [], "commodity_summary": []}

@@ -24,26 +24,24 @@ if __name__ == "__main__":
             symbols = ['THYAO', 'SASA', 'EREGL', 'GARAN', 'ASELS']
             for sym in symbols:
                 try:
-                    h = tv.get_hist(sym, 'BIST', Interval.in_daily, n_bars=20)
+                    h = tv.get_hist(sym, 'BIST', Interval.in_daily, n_bars=30)
                     if h is not None and not h.empty:
                         p = h.close.iloc[-1]
                         ma = h.close.mean()
+                        
+                        # Basit Teknik Durum (Gerçek verilere dayalı)
+                        status = "GÜÇLÜ" if p > ma else "ZAYIF"
                         res["results"].append({
-                            "symbol": sym, "price": f"{p:.2f}", "rsi": "50.0", 
-                            "status": "GÜÇLÜ" if p > ma else "NÖTR",
-                            "color": "#00ff88" if p > ma else "#60a5fa"
+                            "symbol": sym, "price": f"{p:.2f}", "rsi": "---", 
+                            "status": status,
+                            "color": "#00ff88" if status == "GÜÇLÜ" else "#ff3b30"
                         })
                 except: continue
         elif cat == 'akd':
-            kurumlar = ["İş Yatırım", "Garanti bbva", "Yapı Kredi", "BofA Securities"]
-            for k in kurumlar:
-                net = random.randint(-100, 100)
-                res["results"].append({"kurum": k, "net_hacim": f"{abs(net)} M₺", "yon": "ALICI" if net > 0 else "SATICI", "color": "#00ff88" if net > 0 else "#ff3b30"})
+            # AKD Taraması için gerçek kurum verisi mevcut değil, boş dönülüyor.
+            res["results"] = []
         elif cat == 'kap':
-            res["results"] = [
-                {"time": "09:15", "title": "Piyasalar açıldı.", "source": "Haber", "urgent": False},
-                {"time": "10:00", "title": "BIST100 yatay seyrediyor.", "source": "Analiz", "urgent": False}
-            ]
+            res["results"] = []
         
     except Exception as e:
         res = {"error": str(e), "results": []}

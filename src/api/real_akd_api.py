@@ -20,19 +20,9 @@ if __name__ == "__main__":
         tv = TvDatafeed()
         
         hist = tv.get_hist(symbol, 'BIST', Interval.in_1_minute, n_bars=50)
-        if hist is not None and not hist.empty:
-            buy = hist[hist.close >= hist.open].volume.sum()
-            sell = hist[hist.close < hist.open].volume.sum()
-            brokers = ["İş Yatırım", "Garanti", "Yapı Kredi", "BofA", "Ak Yatırım"]
-            random.seed(symbol)
-            res = {
-                "symbol": symbol,
-                "buyers": [{"kurum": b, "lot": f"{int(buy/5):,}"} for b in brokers],
-                "sellers": [{"kurum": b, "lot": f"{int(sell/5):,}"} for b in brokers[:3]],
-                "total": [{"kurum": "Diğer", "lot": "100,000", "type": "Alıcı", "color": "#00ff88"}]
-            }
-        else:
-            res = {"error": "Veri yok", "buyers": [], "sellers": [], "total": []}
+        # NOT: tvDatafeed üzerinden kurum bazlı (AKD) veri çekilememektedir.
+        # Kullanıcı isteği üzerine sahte veri üretimi kaldırılmıştır.
+        res = {"error": "Kurum bazlı AKD verisi bu kaynakta mevcut değil.", "buyers": [], "sellers": [], "total": []}
     except Exception as e:
         res = {"error": str(e), "buyers": [], "sellers": [], "total": []}
 

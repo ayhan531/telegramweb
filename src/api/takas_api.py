@@ -17,16 +17,9 @@ if __name__ == "__main__":
     try:
         from tvDatafeed import TvDatafeed, Interval
         tv = TvDatafeed()
-        hist = tv.get_hist(symbol, 'BIST', Interval.in_daily, n_bars=1)
-        if hist is not None and not hist.empty:
-            vol = int(hist.volume.iloc[-1])
-            price = float(hist.close.iloc[-1])
-            res = {
-                "symbol": symbol, "total_volume": vol, "price": price,
-                "holders": [{"kurum": "MKK", "toplam_lot": f"{int(vol/2):,}", "pay": "%50.00"}]
-            }
-        else:
-            res = {"error": "Veri yok", "holders": []}
+        # NOT: tvDatafeed üzerinden saklama (Takas) verisi çekilememektedir.
+        # Kullanıcı isteği üzerine sahte veri üretimi kaldırılmıştır.
+        res = {"error": "Saklama (Takas) verisi bu kaynakta mevcut değil.", "holders": []}
     except Exception as e:
         res = {"error": str(e), "holders": []}
 

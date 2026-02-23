@@ -28,8 +28,6 @@ if __name__ == "__main__":
                                 "color": "bg-yellow-600" if "GOLD" in sym.upper() else "bg-blue-600", "icon": sym[0]})
             except: continue
         
-        if not funds:
-             funds = [{"code": "GLDTR", "name": "Altın ETF", "change": "+0.00%", "color": "bg-yellow-600", "icon": "G"}]
         res = {"funds": funds}
     except Exception as e:
         res = {"error": str(e), "funds": []}
