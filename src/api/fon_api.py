@@ -4,39 +4,50 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from bs4 import BeautifulSoup
 import os
 import json
-from dotenv import load_dotenv
-
-# Load environment variables from root
-current_dir = os.path.dirname(os.path.abspath(__file__))
-root_dir = os.path.dirname(os.path.dirname(current_dir))
-load_dotenv(os.path.join(root_dir, '.env'))
 
 def get_fon_data():
     """
-    TEFAS veya İş Yatırım üzerinden popüler fon verilerini çeker.
+    Ekonomi portalları üzerinden popüler fon verilerini çeker.
     """
     try:
-        # Örnek olarak popüler fonları içeren bir tabloyu veya mock veriyi çekelim
-        # Gerçek kazıma için TEFAS'ın API'si veya post istekleri gerekebilir. 
-        # Botun ekran görüntüsünde Sabit fonlar (KHA, GAF, AHI, RHS, GMR) vardı.
+        url = "https://kur.doviz.com/fonlar"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
         
-        funds = [
-            {"code": "KHA", "name": "PARDUS PORTFÖY İKİN...", "change": "+10,33%", "color": "bg-indigo-600", "icon": "P"},
-            {"code": "GAF", "name": "INVEO PORTFÖY BİRİN...", "change": "+9,78%", "color": "bg-blue-600", "icon": "INVEO"},
-            {"code": "AHI", "name": "ATLAS PORTFÖY BİRİN...", "change": "+7,97%", "color": "bg-cyan-600", "icon": "A"},
-            {"code": "RHS", "name": "ROTA PORTFÖY HİSSE ...", "change": "+7,40%", "color": "bg-purple-600", "icon": "*"},
-            {"code": "GMR", "name": "INVEO PORTFÖY İKİNC...", "change": "+2,17%", "color": "bg-blue-600", "icon": "INVEO"}
-        ]
+        response = requests.get(url, headers=headers, verify=False)
+        soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Gelecekte buraya gerçek TEFAS kazıyıcısı eklenebilir.
+        funds = []
+        
+        # doviz.com structure: table tbody tr
+        rows = soup.select("table tbody tr")
+        
+        # Bot ekran görüntüsündeki gibi popüler fonları veya en çok artanları alalım
+        for row in rows[:15]:
+            cols = row.select("td")
+            if len(cols) >= 3:
+                code = cols[0].text.strip()
+                name = cols[1].text.strip()
+                change = cols[2].text.strip()
+                
+                # Sadece hisse senedi yoğun veya popüler olanları filtreleyebiliriz 
+                # ama kullanıcı "gerçek veri" istediği için listedekileri veriyoruz.
+                funds.append({
+                    "code": code,
+                    "name": name if len(name) < 25 else name[:22] + "...",
+                    "change": ("+" if not change.startswith("-") else "") + change,
+                    "color": "bg-blue-600", # Varsayılan renk
+                    "icon": code[0]
+                })
+
+        if not funds:
+             return {"error": "Veri kazınamadı"}
+             
         return {"funds": funds}
     except Exception as e:
-        print(f"Fon Hatası: {e}")
-        return None
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     res = get_fon_data()
-    if res:
-        print(json.dumps(res))
-    else:
-        print(json.dumps({"error": "Fon verisi alınamadı"}))
+    print(json.dumps(res))

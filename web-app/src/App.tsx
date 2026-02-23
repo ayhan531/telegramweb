@@ -132,9 +132,16 @@ const ViewTimerBadge = ({ time }: { time: string }) => (
   </div>
 );
 
-// 1. ANASAYFA
 const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, favorites: string[], onSearch: (s: string) => void, onToggleFavorite: (s: string) => void }) => {
   const [val, setVal] = useState('');
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && val.trim()) {
+      onSearch(val.trim().toUpperCase());
+    }
+  };
+
+  const filteredFavorites = favorites.filter(f => f.includes(val.toUpperCase()));
   return (
     <div className="animate-fade-in animate-duration-200">
       <div className="flex justify-center mt-4">
@@ -151,6 +158,7 @@ const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, 
               placeholder="Hisse ara..."
               value={val}
               onChange={e => setVal(e.target.value)}
+              onKeyDown={handleSearchKeyPress}
               className="w-full bg-[#111114] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-[15px] focus:outline-none focus:border-white/20 text-white placeholder:text-zinc-600"
             />
           </div>
@@ -172,21 +180,20 @@ const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, 
       <div className="p-4 pt-6">
         <div className="flex justify-between items-center mb-4 px-1">
           <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Favoriler (BIST/VIOP)</h3>
-          <span className="text-[11px] font-bold text-zinc-600 bg-white/5 px-2 py-0.5 rounded-full">{favorites.length}/50</span>
+          <span className="text-[11px] font-bold text-zinc-600 bg-white/5 px-2 py-0.5 rounded-full">{filteredFavorites.length}/50</span>
         </div>
 
-        {favorites.length === 0 ? (
+        {filteredFavorites.length === 0 ? (
           <div className="flex flex-col items-center justify-center pt-20 text-center px-6">
             <Star className="w-14 h-14 text-[#222226] mb-4" strokeWidth={1} />
-            <h3 className="text-[17px] font-bold tracking-wide">"Favoriler" Listesi Boş</h3>
+            <h3 className="text-[17px] font-bold tracking-wide">{val ? 'Sonuç Bulunamadı' : '"Favoriler" Listesi Boş'}</h3>
             <p className="text-zinc-500 text-[13px] mt-2 leading-relaxed max-w-[280px]">
-              Hisse ararken yıldız butonuna tıklayarak bu listeye hisse ekleyebilirsiniz.
+              {val ? 'Aradığınız kritere uygun favori hisse bulunamadı.' : 'Hisse ararken yıldız butonuna tıklayarak bu listeye hisse ekleyebilirsiniz.'}
             </p>
-            <p className="text-[#ff9d00] text-[13px] mt-1 font-medium">Tüm listelerde toplamda 50 hisse eklenebilir.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {favorites.map((fav) => (
+            {filteredFavorites.map((fav) => (
               <FavoriteCard key={fav} symbol={fav} onSelect={onSearch} onRemove={() => onToggleFavorite(fav)} />
             ))}
           </div>
@@ -300,17 +307,13 @@ const Kurumsal = ({ akdData }: { akdData: any }) => {
       </div>
 
       <div className="px-4 py-2 mt-1 pb-10">
-        {(tab === 'alanlar' ? akdData?.buyers : akdData?.sellers)?.map((b: any, i: number) => generateBrokerRow(b, i, tab === 'satanlar'))}
-
-        {/* Mock Data if API is null for exact screenshot look */}
-        {!akdData && (
-          <>
-            {generateBrokerRow({ kurum: 'Tera', lot: '3,2 Mr ₺' }, 0, tab === 'satanlar')}
-            {generateBrokerRow({ kurum: 'BofA', lot: '1,9 Mr ₺' }, 1, tab === 'satanlar')}
-            {generateBrokerRow({ kurum: 'Ak', lot: '1,1 Mr ₺' }, 2, tab === 'satanlar')}
-            {generateBrokerRow({ kurum: 'İnfo', lot: '681,7 Mn ₺' }, 3, tab === 'satanlar')}
-            {generateBrokerRow({ kurum: 'Alnus', lot: '391,2 Mn ₺' }, 4, tab === 'satanlar')}
-          </>
+        {(!akdData || akdData.error) ? (
+          <div className="flex flex-col items-center justify-center pt-20 text-center px-6">
+            <Activity className="w-12 h-12 text-zinc-800 mb-4" />
+            <div className="text-zinc-500 font-medium">Bu sembol için AKD verisi şu an mevcut değil.</div>
+          </div>
+        ) : (
+          (tab === 'alanlar' ? akdData?.buyers : akdData?.sellers)?.map((b: any, i: number) => generateBrokerRow(b, i, tab === 'satanlar'))
         )}
       </div>
     </div>
@@ -355,35 +358,27 @@ const Bulten = ({ data, user }: { data: any, user: any }) => (
         <div className="border border-white/5 rounded-l-xl bg-gradient-to-b from-[#00ff88]/[0.05] to-transparent">
           <div className="text-[#00ff88] text-center py-3 font-bold border-b border-white/5 text-[15px]">Endeksi Yükseltenler</div>
           <div className="flex flex-col">
-            {(data?.gainers || [
-              { symbol: "DSTKF", change: "+31.9" },
-              { symbol: "ASELS", change: "+24.8" },
-              { symbol: "THYAO", change: "+18.5" },
-              { symbol: "AKBNK", change: "+12.1" },
-              { symbol: "YKBNK", change: "+9.2" }
-            ]).map((g: any, i: number) => (
+            {(data?.gainers && !data.error) ? data.gainers.map((g: any, i: number) => (
               <div key={i} className={`flex justify-between items-center px-4 py-3 border-b border-white/5 ${i === 4 ? 'border-0' : ''}`}>
                 <span className="font-bold text-[14px]">{g.symbol}</span>
                 <span className="text-[#00ff88] font-bold text-sm">{g.change}</span>
               </div>
-            ))}
+            )) : (
+              <div className="p-4 text-xs text-zinc-600 text-center">Veri Alınamadı</div>
+            )}
           </div>
         </div>
         <div className="border border-white/5 border-l-0 rounded-r-xl bg-gradient-to-b from-[#ff3b30]/[0.05] to-transparent">
           <div className="text-[#ff3b30] text-center py-3 font-bold border-b border-white/5 text-[15px]">Endeksi Düşürenler</div>
           <div className="flex flex-col">
-            {(data?.losers || [
-              { symbol: "KLRHO", change: "-37.9" },
-              { symbol: "BIMAS", change: "-7.9" },
-              { symbol: "SASA", change: "-5.8" },
-              { symbol: "EKGYO", change: "-4.7" },
-              { symbol: "CCOLA", change: "-3.3" }
-            ]).map((l: any, i: number) => (
+            {(data?.losers && !data.error) ? data.losers.map((l: any, i: number) => (
               <div key={i} className={`flex justify-between items-center px-4 py-3 border-b border-white/5 ${i === 4 ? 'border-0' : ''}`}>
                 <span className="font-bold text-[14px]">{l.symbol}</span>
                 <span className="text-[#ff3b30] font-bold text-sm">{l.change}</span>
               </div>
-            ))}
+            )) : (
+              <div className="p-4 text-xs text-zinc-600 text-center">Veri Alınamadı</div>
+            )}
           </div>
         </div>
       </div>
@@ -392,30 +387,76 @@ const Bulten = ({ data, user }: { data: any, user: any }) => (
 );
 
 // 4. DIGER
-const Diger = () => (
-  <div className="animate-fade-in">
-    <HeaderBar title="Veri Terminali" />
-    <ViewTimerBadge time="28:39" />
+const Diger = () => {
+  const [selectedSubView, setSelectedSubView] = useState<string | null>(null);
 
-    <div className="mt-8 mb-4 relative">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="w-8 h-1 bg-white/10 rounded-full absolute -top-5"></div>
+  const handleMenuItemClick = (view: string) => {
+    setSelectedSubView(view);
+  };
+
+  const handleBack = () => {
+    setSelectedSubView(null);
+  };
+
+  if (selectedSubView) {
+    return (
+      <div className="animate-fade-in pb-20">
+        <div className="flex items-center gap-3 p-4 border-b border-white/5 sticky top-0 bg-black/80 backdrop-blur-md z-10">
+          <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/10 active:bg-white/20 transition-colors">
+            <ArrowLeft className="w-6 h-6 text-white" />
+          </button>
+          <span className="font-bold text-lg text-white">{selectedSubView}</span>
+        </div>
+
+        <div className="p-4">
+          {selectedSubView === 'Hisse Radar' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-[#111114] border border-white/5 rounded-2xl">
+                <h4 className="font-bold mb-2">Popüler Taramalar</h4>
+                <div className="grid grid-cols-1 gap-2">
+                  <button className="flex justify-between p-3 bg-white/5 rounded-xl text-sm"><span>Günün Yıldızları</span><ChevronDown className="w-4 h-4 -rotate-90" /></button>
+                  <button className="flex justify-between p-3 bg-white/5 rounded-xl text-sm"><span>Düşeni Kıranlar</span><ChevronDown className="w-4 h-4 -rotate-90" /></button>
+                  <button className="flex justify-between p-3 bg-white/5 rounded-xl text-sm"><span>Hacim Artışı Olanlar</span><ChevronDown className="w-4 h-4 -rotate-90" /></button>
+                </div>
+              </div>
+            </div>
+          )}
+          {selectedSubView !== 'Hisse Radar' && (
+            <div className="flex flex-col items-center justify-center pt-20 text-center px-6">
+              <Activity className="w-12 h-12 text-zinc-800 mb-4" />
+              <div className="text-zinc-500 font-medium">{selectedSubView} için veri terminali bağlantısı kuruluyor...</div>
+            </div>
+          )}
+        </div>
       </div>
-      <h3 className="text-center font-bold text-lg">Diğer</h3>
-    </div>
+    );
+  }
 
-    <div className="px-4 space-y-2 pb-10">
-      <DigerMenuItem icon={Search} title="Hisse Radar" subtitle="Hisse tarama ve filtreleme" color="text-cyan-400" bg="bg-cyan-400/10" />
-      <DigerMenuItem icon={Activity} title="Teknik Tarama" subtitle="Teknik strateji taramaları" color="text-red-400" bg="bg-red-400/10" />
-      <DigerMenuItem icon={Search} title="AKD Tarama" subtitle="Kurum alım/satım taraması" color="text-cyan-400" bg="bg-cyan-400/10" />
-      <DigerMenuItem icon={Briefcase} title="Takas Tarama" subtitle="Takas verisi tarama araçları" color="text-indigo-400" bg="bg-indigo-400/10" />
-      <DigerMenuItem icon={Bell} title="KAP Ajan" subtitle="KAP bildirim takip ajanı" color="text-orange-400" bg="bg-orange-400/10" />
-    </div>
-  </div>
-);
+  return (
+    <div className="animate-fade-in">
+      <HeaderBar title="Veri Terminali" />
+      <ViewTimerBadge time="28:39" />
 
-const DigerMenuItem = ({ icon: Icon, title, subtitle, color, bg }: any) => (
-  <div className="flex items-center gap-4 bg-[#0a0a0c] border border-white/5 p-4 rounded-2xl active:bg-white/5 transition-colors">
+      <div className="mt-8 mb-4 relative">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-8 h-1 bg-white/10 rounded-full absolute -top-5"></div>
+        </div>
+        <h3 className="text-center font-bold text-lg">Diğer</h3>
+      </div>
+
+      <div className="px-4 space-y-2 pb-10">
+        <DigerMenuItem icon={Search} title="Hisse Radar" subtitle="Hisse tarama ve filtreleme" color="text-cyan-400" bg="bg-cyan-400/10" onClick={() => handleMenuItemClick('Hisse Radar')} />
+        <DigerMenuItem icon={Activity} title="Teknik Tarama" subtitle="Teknik strateji taramaları" color="text-red-400" bg="bg-red-400/10" onClick={() => handleMenuItemClick('Teknik Tarama')} />
+        <DigerMenuItem icon={Search} title="AKD Tarama" subtitle="Kurum alım/satım taraması" color="text-cyan-400" bg="bg-cyan-400/10" onClick={() => handleMenuItemClick('AKD Tarama')} />
+        <DigerMenuItem icon={Briefcase} title="Takas Tarama" subtitle="Takas verisi tarama araçları" color="text-indigo-400" bg="bg-indigo-400/10" onClick={() => handleMenuItemClick('Takas Tarama')} />
+        <DigerMenuItem icon={Bell} title="KAP Ajan" subtitle="KAP bildirim takip ajanı" color="text-orange-400" bg="bg-orange-400/10" onClick={() => handleMenuItemClick('KAP Ajan')} />
+      </div>
+    </div>
+  );
+};
+
+const DigerMenuItem = ({ icon: Icon, title, subtitle, color, bg, onClick }: any) => (
+  <div className="flex items-center gap-4 bg-[#0a0a0c] border border-white/5 p-4 rounded-2xl active:bg-white/5 transition-colors" onClick={onClick}>
     <div className={`w-12 h-12 rounded-2xl ${bg} flex items-center justify-center`}>
       <Icon className={`w-6 h-6 ${color}`} />
     </div>
@@ -428,51 +469,68 @@ const DigerMenuItem = ({ icon: Icon, title, subtitle, color, bg }: any) => (
 );
 
 // 5. FON
-const Fon = ({ data }: { data: any }) => (
-  <div className="animate-fade-in">
-    <HeaderBar title="Veri Terminali" />
-    <ViewTimerBadge time="29:08" />
+const Fon = ({ data }: { data: any }) => {
+  const [val, setVal] = useState('');
 
-    <div className="px-4 mt-2">
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
-        <input type="text" placeholder="Fon ara..." className="w-full bg-[#111114] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-[15px] focus:outline-none focus:border-white/20 text-white placeholder:text-zinc-600" />
-      </div>
+  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+    // Fon araması sadece filtreleme yaptığı için özel bir aksiyon gerekmez, 
+    // ama Enter'a basıldığında klavyeyi kapatmak yararlı olabilir.
+    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+  };
 
-      <div className="bg-[#0a0a0c] border border-white/5 rounded-2xl overflow-hidden mb-6">
-        <h3 className="text-[17px] font-bold text-white p-4 pb-2">Bizim Seçtiklerimiz</h3>
+  const filteredFunds = data?.funds?.filter((f: any) =>
+    f.code.toUpperCase().includes(val.toUpperCase()) ||
+    f.name.toUpperCase().includes(val.toUpperCase())
+  ) || [];
 
-        <div className="flex px-4 py-2 gap-2 overflow-x-auto hide-scrollbar">
-          <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white text-white font-medium text-sm bg-white/10">BIST100</button>
-          <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white/10 text-zinc-400 font-medium text-sm">Yabancı Hisse</button>
-          <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white/10 text-zinc-400 font-medium text-sm">Altın</button>
-          <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white/10 text-zinc-400 font-medium text-sm">Gümüş</button>
+  return (
+    <div className="animate-fade-in">
+      <HeaderBar title="Veri Terminali" />
+      <ViewTimerBadge time="29:08" />
+
+      <div className="px-4 mt-2">
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Kodu veya ismiyle ara..."
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={handleSearchKeyPress}
+            className="w-full bg-[#111114] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-[15px] focus:outline-none focus:border-white/20 text-white placeholder:text-zinc-600"
+          />
         </div>
 
-        <table className="w-full mt-2">
-          <thead>
-            <tr className="text-zinc-500 text-[10px] uppercase font-bold text-left border-b border-white/5">
-              <th className="pl-4 py-3 font-bold tracking-wider">FON</th>
-              <th className="py-3 font-bold tracking-wider">FON ADI</th>
-              <th className="pr-4 py-3 text-right font-bold tracking-wider">AYLIK DEĞİŞİM</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data?.funds || [
-              { code: "KHA", name: "PARDUS PORTFÖY İKİN...", change: "+10,33%", color: "bg-indigo-600", icon: "P" },
-              { code: "GAF", name: "INVEO PORTFÖY BİRİN...", change: "+9,78%", color: "bg-blue-600", icon: "INVEO" },
-              { code: "AHI", name: "ATLAS PORTFÖY BİRİN...", change: "+7,97%", color: "bg-cyan-600", icon: "A" },
-              { code: "RHS", name: "ROTA PORTFÖY HİSSE ...", change: "+7,40%", color: "bg-purple-600", icon: "*" },
-              { code: "GMR", name: "INVEO PORTFÖY İKİNC...", change: "+2,17%", color: "bg-blue-600", icon: "INVEO" }
-            ]).map((f: any, i: number) => (
-              <FonRow key={i} code={f.code} name={f.name} val={f.change} color={f.color} icon={f.icon} />
-            ))}
-          </tbody>
-        </table>
+        <div className="bg-[#0a0a0c] border border-white/5 rounded-2xl overflow-hidden mb-6">
+          <h3 className="text-[17px] font-bold text-white p-4 pb-2">Popüler Fonlar</h3>
+
+          <div className="flex px-4 py-2 gap-2 overflow-x-auto hide-scrollbar">
+            <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white text-white font-medium text-sm bg-white/10">Tümü</button>
+            <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white/10 text-zinc-400 font-medium text-sm">Hisse Senedi</button>
+            <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white/10 text-zinc-400 font-medium text-sm">Altın</button>
+          </div>
+
+          <table className="w-full mt-2">
+            <thead>
+              <tr className="text-zinc-500 text-[10px] uppercase font-bold text-left border-b border-white/5">
+                <th className="pl-4 py-3 font-bold tracking-wider">FON</th>
+                <th className="py-3 font-bold tracking-wider">FON ADI</th>
+                <th className="pr-4 py-3 text-right font-bold tracking-wider">GÜNLÜK DEĞİŞİM</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFunds.length > 0 ? filteredFunds.map((f: any, i: number) => (
+                <FonRow key={i} code={f.code} name={f.name} val={f.change} color={f.color} icon={f.icon} />
+              )) : (
+                <tr><td colSpan={3} className="p-10 text-center text-zinc-600">Aranan kriterde fon bulunamadı</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const FonRow = ({ code, name, val, color, icon }: any) => (
   <tr className="border-b border-white/[0.02] hover:bg-white/[0.02]">
