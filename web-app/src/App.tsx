@@ -133,6 +133,7 @@ const ViewTimerBadge = ({ time }: { time: string }) => (
 );
 
 const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, favorites: string[], onSearch: (s: string) => void, onToggleFavorite: (s: string) => void }) => {
+  const [marketTab, setMarketTab] = useState('BIST');
   const [val, setVal] = useState('');
 
   const handleSearchKeyPress = (e: React.KeyboardEvent) => {
@@ -142,6 +143,12 @@ const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, 
   };
 
   const filteredFavorites = favorites.filter(f => f.includes(val.toUpperCase()));
+
+  const marketIcons: any = {
+    'BIST': Building2,
+    'KRİPTO': Activity,
+    'EMTİA': Briefcase
+  };
   return (
     <div className="animate-fade-in animate-duration-200">
       <div className="flex justify-center mt-4">
@@ -177,9 +184,22 @@ const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, 
 
       <div className="w-full h-[1px] bg-white/5 mt-2"></div>
 
-      <div className="p-4 pt-6">
+      {/* Market Tabs */}
+      <div className="flex px-4 mt-6 gap-2">
+        {['BIST', 'KRİPTO', 'EMTİA'].map(t => (
+          <button
+            key={t}
+            onClick={() => setMarketTab(t)}
+            className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all border ${marketTab === t ? 'bg-white/10 border-white/20 text-white' : 'border-transparent text-zinc-500'}`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <div className="p-4 pt-4">
         <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Favoriler (BIST/VIOP)</h3>
+          <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">{marketTab} Favoriler</h3>
           <span className="text-[11px] font-bold text-zinc-600 bg-white/5 px-2 py-0.5 rounded-full">{filteredFavorites.length}/50</span>
         </div>
 
@@ -354,34 +374,30 @@ const Bulten = ({ data, user }: { data: any, user: any }) => (
         Merhaba <span className="font-extrabold text-[#00ff88]">{user?.first_name || 'Cem'}</span>, iyi hafta sonları! 🎉
       </p>
 
-      <div className="grid grid-cols-2">
-        <div className="border border-white/5 rounded-l-xl bg-gradient-to-b from-[#00ff88]/[0.05] to-transparent">
-          <div className="text-[#00ff88] text-center py-3 font-bold border-b border-white/5 text-[15px]">Endeksi Yükseltenler</div>
-          <div className="flex flex-col">
-            {(data?.gainers && !data.error) ? data.gainers.map((g: any, i: number) => (
-              <div key={i} className={`flex justify-between items-center px-4 py-3 border-b border-white/5 ${i === 4 ? 'border-0' : ''}`}>
-                <span className="font-bold text-[14px]">{g.symbol}</span>
-                <span className="text-[#00ff88] font-bold text-sm">{g.change}</span>
-              </div>
-            )) : (
-              <div className="p-4 text-xs text-zinc-600 text-center">Veri Alınamadı</div>
-            )}
-          </div>
-        </div>
-        <div className="border border-white/5 border-l-0 rounded-r-xl bg-gradient-to-b from-[#ff3b30]/[0.05] to-transparent">
-          <div className="text-[#ff3b30] text-center py-3 font-bold border-b border-white/5 text-[15px]">Endeksi Düşürenler</div>
-          <div className="flex flex-col">
-            {(data?.losers && !data.error) ? data.losers.map((l: any, i: number) => (
-              <div key={i} className={`flex justify-between items-center px-4 py-3 border-b border-white/5 ${i === 4 ? 'border-0' : ''}`}>
-                <span className="font-bold text-[14px]">{l.symbol}</span>
-                <span className="text-[#ff3b30] font-bold text-sm">{l.change}</span>
-              </div>
-            )) : (
-              <div className="p-4 text-xs text-zinc-600 text-center">Veri Alınamadı</div>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-4 mb-6">
+        <MarketSection title="BIST 100 Öne Çıkanlar" data={data?.bist_summary} color="#00ff88" />
+        <MarketSection title="Kripto Para Özeti" data={data?.crypto_summary} color="#ffb04f" />
+        <MarketSection title="Emtia / Forex Özeti" data={data?.commodity_summary} color="#indigo-400" />
       </div>
+    </div>
+  </div>
+);
+
+const MarketSection = ({ title, data, color }: any) => (
+  <div className="border border-white/5 rounded-xl bg-gradient-to-b from-white/[0.02] to-transparent overflow-hidden">
+    <div className="px-4 py-3 font-bold border-b border-white/5 text-[15px]" style={{ color }}>{title}</div>
+    <div className="flex flex-col">
+      {(data && data.length > 0) ? data.map((item: any, i: number) => (
+        <div key={i} className="flex justify-between items-center px-4 py-3 border-b border-white/5 last:border-0">
+          <span className="font-bold text-[14px]">{item.symbol}</span>
+          <div className="text-right">
+            <div className="text-sm font-bold text-white">{item.price}</div>
+            <div className={`text-[11px] font-bold ${item.change.includes('+') ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>{item.change}</div>
+          </div>
+        </div>
+      )) : (
+        <div className="p-4 text-xs text-zinc-600 text-center">Veri Alınamadı</div>
+      )}
     </div>
   </div>
 );
@@ -604,8 +620,12 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
 
         <div className="flex bg-[#111114] rounded-xl p-1.5 border border-white/5 justify-between">
           <button onClick={() => setTab('derinlik')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'derinlik' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Derinlik</button>
-          <button onClick={() => setTab('akd')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'akd' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>AKD</button>
-          <button onClick={() => setTab('takas')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'takas' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Takas</button>
+          {stock?.exchange === 'BIST' && (
+            <>
+              <button onClick={() => setTab('akd')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'akd' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>AKD</button>
+              <button onClick={() => setTab('takas')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'takas' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Takas</button>
+            </>
+          )}
           <button onClick={() => setTab('grafik')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'grafik' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Grafik</button>
         </div>
 
@@ -663,7 +683,7 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
           <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden aspect-square relative">
             <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0c]">
               <iframe
-                src={`https://s.tradingview.com/widgetembed/?frameElementId=tw&symbol=BIST%3A${symbol}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=1a1a1d&theme=dark`}
+                src={`https://s.tradingview.com/widgetembed/?frameElementId=tw&symbol=${stock?.exchange || 'BIST'}%3A${symbol}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=1a1a1d&theme=dark`}
                 style={{ width: '100%', height: '100%', border: 'none' }}
               ></iframe>
             </div>

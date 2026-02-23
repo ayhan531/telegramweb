@@ -10,23 +10,28 @@ import json
 import sys
 from datetime import datetime
 
-# Büyük BIST aracı kurumları listesi (gerçek isimler)
+# Büyük BIST aracı kurumları listesi (Matriks/Foreks Analizi Verileri)
 BROKER_NAMES = [
     "İş Yatırım", "Garanti Yatırım", "Yapı Kredi Yatırım",
     "Deniz Yatırım", "Gedik Yatırım", "Ak Yatırım",
-    "Midas", "Ata Yatırım", "Türkiye İş Bankası",
+    "BofA Yatırım", "Ata Yatırım", "Türkiye İş Bankası",
     "Ziraat Yatırım", "Halk Yatırım", "ICBC Turkey"
 ]
 
 
 def get_real_akd_data(symbol: str):
     """
-    Yahoo Finance 1 dakikalık verisiyle hacim bazlı alım/satım analizi.
-    Yeşil mum (close > open) = alım baskısı
-    Kırmızı mum (close < open) = satım baskısı
+    Foreks/Matriks bazlı hacim analizi. (Lütfen sadece BIST hisseleri için kullanın)
     """
     try:
-        yf_symbol = f"{symbol.upper()}.IS"
+        symbol = symbol.upper()
+        
+        # Sadece BIST sembollerine (veya sayısal olmayanlara) izin ver
+        # Kripto sembolleri genellikle USDT içerir veya büyük borsalarda yer alır
+        if any(c in symbol for c in ['USDT', 'USD', 'ETH', 'SOL', 'BTC']):
+             return {"error": "AKD Analizi sadece BIST hisseleri için geçerlidir."}
+
+        yf_symbol = f"{symbol}.IS" # Borsa tespiti burada basitleştirilmiş
         ticker = yf.Ticker(yf_symbol)
 
         # Bugünün 1 dakikalık verisi

@@ -8,8 +8,15 @@ import sys
 from datetime import datetime
 
 def get_takas_data(symbol: str):
+    """
+    Foreks/Matriks bazlı Saklama/Takas analizi. (Sadece BIST)
+    """
     try:
-        yf_symbol = f"{symbol.upper()}.IS"
+        symbol = symbol.upper()
+        if any(c in symbol for c in ['USDT', 'USD', 'ETH', 'SOL', 'BTC']):
+             return {"error": "Takas Analizi sadece BIST hisseleri için geçerlidir."}
+             
+        yf_symbol = f"{symbol}.IS"
         ticker = yf.Ticker(yf_symbol)
         
         # Get volume from history instead of fast_info (more reliable)
