@@ -675,7 +675,6 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
         </div>
       )}
     </div>
-    </div >
   );
 };
 
