@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 logging.getLogger('tvDatafeed').setLevel(logging.CRITICAL)
 
@@ -12,6 +13,12 @@ def detect_exchange(symbol: str):
     forex = ['XAUUSD', 'XAGUSD', 'USOIL', 'UKOIL', 'EURUSD', 'GBPUSD', 'USDJPY', 'USDTRY', 'GA']
     if any(fc in symbol for fc in forex): return 'FX_IDC'
     return 'BIST'
+
+def fetch_one(tv, symbol, exchange):
+    try:
+        from tvDatafeed import Interval
+        return tv.get_hist(symbol, exchange, Interval.in_1_minute, 1)
+    except: return None
 
 if __name__ == "__main__":
     _orig_stdout = sys.stdout
@@ -25,11 +32,13 @@ if __name__ == "__main__":
         from tvDatafeed import TvDatafeed, Interval
         tv = TvDatafeed()
         
-        # GA Özel Hesaplama (Sessiz modda)
         if symbol in ['GA', 'GRAMALTIN']:
-            ex = 'FX_IDC'
-            xau = tv.get_hist('XAUUSD', ex, Interval.in_1_minute, 1)
-            usd = tv.get_hist('USDTRY', ex, Interval.in_1_minute, 1)
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                f1 = executor.submit(fetch_one, tv, 'XAUUSD', 'FX_IDC')
+                f2 = executor.submit(fetch_one, tv, 'USDTRY', 'FX_IDC')
+                xau = f1.result()
+                usd = f2.result()
+            
             if xau is not None and usd is not None:
                 p = (xau.close.iloc[-1] / 31.10347) * usd.close.iloc[-1]
                 res = {"price": round(p, 2), "change": 0.0, "name": "Gram Altın", "exchange": "Calc"}

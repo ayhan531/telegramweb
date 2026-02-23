@@ -11,11 +11,13 @@ declare global {
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState('anasayfa');
   const [symbol, setSymbol] = useState('');
-  const [akdData, setAkdData] = useState<any>(null); // Dummy data container for AKD page
+  const [akdData, setAkdData] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
   const [bultenData, setBultenData] = useState<any>(null);
   const [fonData, setFonData] = useState<any>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [bultenLoading, setBultenLoading] = useState(false);
+  const [fonLoading, setFonLoading] = useState(false);
 
   useEffect(() => {
     try {
@@ -26,7 +28,6 @@ const App: React.FC = () => {
         WebApp.setHeaderColor('#000000');
         WebApp.setBackgroundColor('#000000');
 
-        // Add security header to all axios requests
         axios.interceptors.request.use(config => {
           config.headers['x-telegram-init-data'] = WebApp.initData;
           return config;
@@ -40,10 +41,12 @@ const App: React.FC = () => {
       console.error(err);
     }
 
-    // Pre-fetch some generic data for the AKD tab
+    setBultenLoading(true);
+    setFonLoading(true);
+
     axios.get(`${API_BASE}/akd/THYAO`).then(res => setAkdData(res.data)).catch(console.error);
-    axios.get(`${API_BASE}/bulten`).then(res => setBultenData(res.data)).catch(console.error);
-    axios.get(`${API_BASE}/fon`).then(res => setFonData(res.data)).catch(console.error);
+    axios.get(`${API_BASE}/bulten`).then(res => setBultenData(res.data)).catch(console.error).finally(() => setBultenLoading(false));
+    axios.get(`${API_BASE}/fon`).then(res => setFonData(res.data)).catch(console.error).finally(() => setFonLoading(false));
   }, []);
 
   useEffect(() => {
@@ -76,8 +79,8 @@ const App: React.FC = () => {
     switch (currentView) {
       case 'anasayfa': return <Anasayfa user={user} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
       case 'kurumsal': return <Kurumsal akdData={akdData} />;
-      case 'bulten': return <Bulten data={bultenData} user={user} />;
-      case 'fon': return <Fon data={fonData} />;
+      case 'bulten': return bultenLoading ? <LoadingView label="Bülten hazırlanıyor..." /> : <Bulten data={bultenData} user={user} />;
+      case 'fon': return fonLoading ? <LoadingView label="Fonlar listeleniyor..." /> : <Fon data={fonData} />;
       case 'diger': return <Diger bultenData={bultenData} />;
       default: return <Anasayfa user={user} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
     }
@@ -101,6 +104,14 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+const LoadingView = ({ label }: { label: string }) => (
+  <div className="flex flex-col items-center justify-center pt-40 animate-fade-in">
+    <RefreshCw className="w-10 h-10 text-cyan-400 animate-spin mb-4" />
+    <div className="text-zinc-500 font-medium tracking-wide">{label}</div>
+    <div className="text-[11px] text-zinc-700 mt-2">TradingView üzerinden canlı veriler alınıyor...</div>
+  </div>
+);
 
 // ======================== NAVIGATION ========================
 const NavButton = ({ id, icon: Icon, label, active, onClick }: any) => (
