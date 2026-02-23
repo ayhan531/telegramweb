@@ -1,47 +1,64 @@
 """
 Fon Veri API (BIST Yatırım Fonları & ETF'ler)
-Kaynak: Yahoo Finance (ücretsiz, gerçek anlık veri)
+Kaynak: TradingView (tvDatafeed)
 """
-import yfinance as yf
+from tvDatafeed import TvDatafeed, Interval
 import json
 import sys
 
+# TradingView bağlantısı
+tv = TvDatafeed()
+
+def safe_get_hist(symbol, exchange, interval, n_bars, retries=3):
+    """Bağlantı hatalarına karşı güvenli veri çekme."""
+    for i in range(retries):
+        try:
+            data = tv.get_hist(symbol=symbol, exchange=exchange, interval=interval, n_bars=n_bars)
+            if data is not None and not data.empty:
+                return data
+        except:
+            pass
+    return None
+
 # BIST'te işlem gören en aktif borsa yatırım fonları (ETF)
 ETF_LIST = {
-    'GLDTR.IS': 'QNB Altın Fonu',
-    'USDTR.IS': 'QNB Dolar Fonu',
-    'Z30EA.IS': 'Ziraat Portföy BIST 30',
-    'GMSTR.IS': 'Gümüş Borsa Yatırım Fonu',
-    'ZGOLD.IS': 'Ziraat Portföy Altın',
+    'GLDTR': 'QNB Altın Fonu',
+    'USDTR': 'QNB Dolar Fonu',
+    'Z30EA': 'Ziraat Portföy BIST 30',
+    'GMSTR': 'Gümüş Borsa Yatırım Fonu',
+    'ZGOLD': 'Ziraat Portföy Altın',
 }
 
 def get_fon_data():
     """
-    BIST'te işlem gören fonların (ETF) gerçek anlık verilerini çeker.
+    BIST ETF'lerinin gerçek verilerini TradingView üzerinden çeker.
     """
     try:
-        symbols = list(ETF_LIST.keys())
-        data = yf.download(symbols, period='2d', interval='1d', progress=False, group_by='ticker')
-
         funds = []
-
-        for sym in symbols:
+        for symbol, name in ETF_LIST.items():
             try:
-                if sym in data:
-                    s_data = data[sym]
-                    if not s_data.empty:
-                        price = float(s_data['Close'].iloc[-1])
-                        prev_price = float(s_data['Close'].iloc[-2]) if len(s_data) > 1 else price
-                        change_pct = ((price - prev_price) / prev_price * 100) if prev_price > 0 else 0
+                # 1 dakikalık anlık fiyat
+                data = safe_get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_1_minute, n_bars=1)
+                # Günlük değişim için 2 bar
+                hist_d = safe_get_hist(symbol=symbol, exchange='BIST', interval=Interval.in_daily, n_bars=2)
+                
+                if data is not None and not data.empty:
+                    latest = data.iloc[-1]
+                    price = float(latest['close'])
+                    
+                    prev_close = price
+                    if hist_d is not None and len(hist_d) >= 2:
+                        prev_close = float(hist_d['close'].iloc[-2])
+                    
+                    change_pct = ((price - prev_close) / prev_close * 100) if prev_close > 0 else 0
 
-                        code = sym.replace('.IS', '')
-                        funds.append({
-                            "code": code,
-                            "name": ETF_LIST.get(sym, code),
-                            "change": ("+" if change_pct >= 0 else "") + f"{change_pct:.2f}%",
-                            "color": "bg-yellow-600" if "ALTIN" in ETF_LIST[sym].upper() or "GOLD" in sym.upper() else "bg-blue-600",
-                            "icon": code[0]
-                        })
+                    funds.append({
+                        "code": symbol,
+                        "name": name,
+                        "change": ("+" if change_pct >= 0 else "") + f"{change_pct:.2f}%",
+                        "color": "bg-yellow-600" if "ALTIN" in name.upper() or "GOLD" in symbol.upper() else "bg-blue-600",
+                        "icon": symbol[0]
+                    })
             except:
                 continue
 

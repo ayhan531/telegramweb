@@ -1,78 +1,105 @@
 """
 Bülten API - Çoklu Piyasa Özeti (BIST, Kripto, Emtia)
-Kaynak: TradingView / Yahoo Finance
+Kaynak: TradingView (tvDatafeed)
 """
-import yfinance as yf
+from tvDatafeed import TvDatafeed, Interval
 import json
 import sys
 from datetime import datetime
 
-# Sembol listeleri
-BIST_STOCKS = ['THYAO.IS', 'SASA.IS', 'EREGL.IS', 'GARAN.IS', 'ASELS.IS']
-CRYPTO_STOCKS = ['BTC-USD', 'ETH-USD', 'SOL-USD']
-COMMODITY_STOCKS = ['GC=F', 'SI=F', 'CL=F'] # Gold, Silver, Crude Oil
+# TradingView bağlantısı
+tv = TvDatafeed()
 
-BIST_NAMES = {'THYAO.IS': 'THY', 'SASA.IS': 'SASA', 'EREGL.IS': 'EREGL', 'GARAN.IS': 'GARAN', 'ASELS.IS': 'ASELS'}
-CRYPTO_NAMES = {'BTC-USD': 'Bitcoin', 'ETH-USD': 'Ethereum', 'SOL-USD': 'Solana'}
-COMMODITY_NAMES = {'GC=F': 'Altın (Ons)', 'SI=F': 'Gümüş (Ons)', 'CL=F': 'Petrol (WTI)'}
+def safe_get_hist(symbol, exchange, interval, n_bars, retries=3):
+    """Bağlantı hatalarına karşı güvenli veri çekme."""
+    for i in range(retries):
+        try:
+            data = tv.get_hist(symbol=symbol, exchange=exchange, interval=interval, n_bars=n_bars)
+            if data is not None and not data.empty:
+                return data
+        except:
+            pass
+    return None
 
-def get_market_summary(symbols, names):
+# Sembol listeleri ve borsa eşleştirmeleri
+MARKETS = {
+    'BIST': {
+        'exchange': 'BIST',
+        'symbols': {
+            'THYAO': 'THY',
+            'SASA': 'SASA',
+            'EREGL': 'EREGL',
+            'GARAN': 'GARAN',
+            'ASELS': 'ASELS'
+        }
+    },
+    'CRYPTO': {
+        'exchange': 'BINANCE',
+        'symbols': {
+            'BTCUSDT': 'Bitcoin',
+            'ETHUSDT': 'Ethereum',
+            'SOLUSDT': 'Solana'
+        }
+    },
+    'COMMODITY': {
+        'exchange': 'FX_IDC',
+        'symbols': {
+            'XAUUSD': 'Altın (Ons)',
+            'XAGUSD': 'Gümüş (Ons)',
+            'USOIL': 'Petrol (WTI)'
+        }
+    }
+}
+
+def get_market_summary(market_key):
     summary = []
-    try:
-        data = yf.download(symbols, period='2d', interval='1d', progress=False, group_by='ticker')
-        for sym in symbols:
-            try:
-                if sym in data:
-                    s_data = data[sym]
-                    if not s_data.empty:
-                        price = float(s_data['Close'].iloc[-1])
-                        prev_price = float(s_data['Close'].iloc[-2]) if len(s_data) > 1 else price
-                        change_pct = ((price - prev_price) / prev_price * 100) if prev_price > 0 else 0
-                        
-                        summary.append({
-                            "symbol": names.get(sym, sym),
-                            "price": f"{price:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-                            "change": f"{change_pct:+.2f}%"
-                        })
-            except: continue
-    except: pass
+    m_info = MARKETS[market_key]
+    exchange = m_info['exchange']
+    symbols_dict = m_info['symbols']
+    
+    for sym, name in symbols_dict.items():
+        try:
+            # Günlük değişim için 2 günlük bar çekelim (daha hızlı ve tutarlı)
+            data = safe_get_hist(symbol=sym, exchange=exchange, interval=Interval.in_daily, n_bars=2)
+            if data is not None and len(data) >= 1:
+                price = float(data['close'].iloc[-1])
+                prev_close = float(data['close'].iloc[-2]) if len(data) >= 2 else price
+                change_pct = ((price - prev_close) / prev_close * 100) if prev_close > 0 else 0
+                
+                summary.append({
+                    "symbol": name,
+                    "price": f"{price:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+                    "change": f"{change_pct:+.2f}%"
+                })
+        except: continue
     return summary
 
 def get_bulten_data():
     """
-    Tüm piyasalar için günlük özet.
+    Tüm piyasalar için günlük özet - TradingView tabanlı.
     """
     try:
-        # BIST 100
-        bist100 = yf.Ticker('XU100.IS')
-        hist100 = bist100.history(period='2d')
-        price = 0
-        change_pct = 0
-        if not hist100.empty:
-            price = float(hist100['Close'].iloc[-1])
-            prev_close = float(hist100['Close'].iloc[-2]) if len(hist100) > 1 else price
-            change_pct = (price - prev_close) / prev_close * 100
+        # BIST 100 Endeksi
+        price_bist = 0
+        change_bist = 0
+        try:
+            b100 = safe_get_hist(symbol='XU100', exchange='BIST', interval=Interval.in_daily, n_bars=2)
+            if b100 is not None and not b100.empty:
+                price_bist = float(b100['close'].iloc[-1])
+                prev_bist = float(b100['close'].iloc[-2]) if len(b100) >= 2 else price_bist
+                change_bist = ((price_bist - prev_bist) / prev_bist * 100)
+        except: pass
 
-        # Market Summaries
-        bist_gainers = get_market_summary(BIST_STOCKS, BIST_NAMES)
-        crypto_summary = get_market_summary(CRYPTO_STOCKS, CRYPTO_NAMES)
-        commodity_summary = get_market_summary(COMMODITY_STOCKS, COMMODITY_NAMES)
-
-        # Tarih
-        now = datetime.now()
-        months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
-        days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']
-        date_str = f"{now.day} {months[now.month-1]} {days[now.weekday()]}"
-
+        # Piyasa Özeti Çekimleri
         return {
             "index_name": "BIST 100",
-            "price": f"{price:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
-            "change": f"{change_pct:+.2f}%",
-            "bist_summary": bist_gainers,
-            "crypto_summary": crypto_summary,
-            "commodity_summary": commodity_summary,
-            "status": "POZİTİF" if change_pct >= 0 else "NEGATİF",
-            "date": date_str
+            "price": f"{price_bist:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+            "change": f"{change_bist:+.2f}%",
+            "bist_summary": get_market_summary('BIST'),
+            "crypto_summary": get_market_summary('CRYPTO'),
+            "commodity_summary": get_market_summary('COMMODITY'),
+            "status": "POZİTİF" if change_bist >= 0 else "NEGATİF",
+            "date": datetime.now().strftime("%d %m %Y") # Basitleştirilmiş tarih
         }
     except Exception as e:
         return {"error": str(e)}
