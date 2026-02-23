@@ -144,11 +144,6 @@ const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, 
 
   const filteredFavorites = favorites.filter(f => f.includes(val.toUpperCase()));
 
-  const marketIcons: any = {
-    'BIST': Building2,
-    'KRİPTO': Activity,
-    'EMTİA': Briefcase
-  };
   return (
     <div className="animate-fade-in animate-duration-200">
       <div className="flex justify-center mt-4">
