@@ -567,110 +567,115 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
         <span className="font-bold text-lg text-white">{symbol.toUpperCase()} Detay</span>
       </div>
 
-      <div className="p-4 space-y-4 pb-20">
-        {stock && (
-          <div className="bg-[#111114] rounded-2xl p-5 border border-white/5">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-3xl font-black tracking-tight text-white">{symbol.toUpperCase()}</h1>
-                  <button onClick={() => onToggleFavorite(symbol)}>
-                    <Star className={`w-6 h-6 ${favorites.includes(symbol.toUpperCase()) ? 'fill-[#ff9d00] text-[#ff9d00]' : 'text-zinc-600'}`} />
-                  </button>
+      {!stock && !stock?.error ? (
+        <LoadingView label={`${symbol.toUpperCase()} verileri getiriliyor...`} />
+      ) : (
+        <div className="p-4 space-y-4 pb-20">
+          {stock && (
+            <div className="bg-[#111114] rounded-2xl p-5 border border-white/5">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-3xl font-black tracking-tight text-white">{symbol.toUpperCase()}</h1>
+                    <button onClick={() => onToggleFavorite(symbol)}>
+                      <Star className={`w-6 h-6 ${favorites.includes(symbol.toUpperCase()) ? 'fill-[#ff9d00] text-[#ff9d00]' : 'text-zinc-600'}`} />
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-500 uppercase font-bold tracking-widest mt-1">{stock.name}</p>
                 </div>
-                <p className="text-xs text-zinc-500 uppercase font-bold tracking-widest mt-1">{stock.name}</p>
+                <div className="text-right">
+                  <p className="text-3xl font-bold font-mono text-white">{stock.price?.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</p>
+                  <p className={`text-sm font-bold mt-1 inline-flex items-center gap-1 ${stock.change >= 0 ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>
+                    {stock.change >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                    %{Math.abs(stock.change || 0).toFixed(2)}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold font-mono text-white">{stock.price?.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</p>
-                <p className={`text-sm font-bold mt-1 inline-flex items-center gap-1 ${stock.change >= 0 ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>
-                  {stock.change >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                  %{Math.abs(stock.change || 0).toFixed(2)}
-                </p>
+              <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
+                <div className="flex justify-between items-center"><span className="text-[11px] text-zinc-500 font-bold uppercase">Düşük</span><span className="text-sm font-mono font-medium text-zinc-200">{stock.low}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[11px] text-zinc-500 font-bold uppercase">Yüksek</span><span className="text-sm font-mono font-medium text-zinc-200">{stock.high}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[11px] text-zinc-500 font-bold uppercase">Açılış</span><span className="text-sm font-mono font-medium text-zinc-200">{stock.open}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[11px] text-zinc-500 font-bold uppercase">Hacim</span><span className="text-sm font-mono font-medium text-zinc-200">{stock.volume?.toLocaleString('tr-TR')}</span></div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
-              <div className="flex justify-between items-center"><span className="text-[11px] text-zinc-500 font-bold uppercase">Düşük</span><span className="text-sm font-mono font-medium text-zinc-200">{stock.low}</span></div>
-              <div className="flex justify-between items-center"><span className="text-[11px] text-zinc-500 font-bold uppercase">Yüksek</span><span className="text-sm font-mono font-medium text-zinc-200">{stock.high}</span></div>
-              <div className="flex justify-between items-center"><span className="text-[11px] text-zinc-500 font-bold uppercase">Açılış</span><span className="text-sm font-mono font-medium text-zinc-200">{stock.open}</span></div>
-              <div className="flex justify-between items-center"><span className="text-[11px] text-zinc-500 font-bold uppercase">Hacim</span><span className="text-sm font-mono font-medium text-zinc-200">{stock.volume?.toLocaleString('tr-TR')}</span></div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex bg-[#111114] rounded-xl p-1.5 border border-white/5 justify-between">
-          <button onClick={() => setTab('derinlik')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'derinlik' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Derinlik</button>
-          {stock?.exchange === 'BIST' && (
-            <>
-              <button onClick={() => setTab('akd')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'akd' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>AKD</button>
-              <button onClick={() => setTab('takas')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'takas' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Takas</button>
-            </>
           )}
-          <button onClick={() => setTab('grafik')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'grafik' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Grafik</button>
-        </div>
 
-        {tab === 'derinlik' && (
-          <div className="bg-[#111114] rounded-2xl border border-white/5 overflow-hidden">
-            <div className="grid grid-cols-2 divide-x divide-white/5">
-              <div className="p-4">
-                <p className="text-[11px] text-[#00ff88] font-black mb-3 flex items-center gap-1">🟢 ALIŞ <span className="text-zinc-600 font-normal ml-auto">Lot</span></p>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex justify-between items-center mb-2.5">
-                    <span className="text-[13px] font-mono font-medium text-zinc-100">{(285.5 - i * 0.05).toFixed(2)}</span>
-                    <span className="text-[13px] font-mono text-zinc-500">{(Math.random() * 50000).toFixed(0)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="p-4">
-                <p className="text-[11px] text-[#ff3b30] font-black mb-3 flex items-center gap-1 flex-row-reverse">🔴 SATIŞ <span className="text-zinc-600 font-normal mr-auto">Lot</span></p>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex justify-between items-center mb-2.5 flex-row-reverse">
-                    <span className="text-[13px] font-mono font-medium text-zinc-100">{(285.55 + i * 0.05).toFixed(2)}</span>
-                    <span className="text-[13px] font-mono text-zinc-500">{(Math.random() * 50000).toFixed(0)}</span>
-                  </div>
-                ))}
+          <div className="flex bg-[#111114] rounded-xl p-1.5 border border-white/5 justify-between">
+            <button onClick={() => setTab('derinlik')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'derinlik' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Derinlik</button>
+            {stock?.exchange === 'BIST' && (
+              <>
+                <button onClick={() => setTab('akd')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'akd' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>AKD</button>
+                <button onClick={() => setTab('takas')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'takas' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Takas</button>
+              </>
+            )}
+            <button onClick={() => setTab('grafik')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'grafik' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Grafik</button>
+          </div>
+
+          {tab === 'derinlik' && (
+            <div className="bg-[#111114] rounded-2xl border border-white/5 overflow-hidden">
+              <div className="grid grid-cols-2 divide-x divide-white/5">
+                <div className="p-4">
+                  <p className="text-[11px] text-[#00ff88] font-black mb-3 flex items-center gap-1">🟢 ALIŞ <span className="text-zinc-600 font-normal ml-auto">Lot</span></p>
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex justify-between items-center mb-2.5">
+                      <span className="text-[13px] font-mono font-medium text-zinc-100">{(285.5 - i * 0.05).toFixed(2)}</span>
+                      <span className="text-[13px] font-mono text-zinc-500">{(Math.random() * 50000).toFixed(0)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-4">
+                  <p className="text-[11px] text-[#ff3b30] font-black mb-3 flex items-center gap-1 flex-row-reverse">🔴 SATIŞ <span className="text-zinc-600 font-normal mr-auto">Lot</span></p>
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex justify-between items-center mb-2.5 flex-row-reverse">
+                      <span className="text-[13px] font-mono font-medium text-zinc-100">{(285.55 + i * 0.05).toFixed(2)}</span>
+                      <span className="text-[13px] font-mono text-zinc-500">{(Math.random() * 50000).toFixed(0)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {tab === 'akd' && akd && <Kurumsal akdData={akd} />}
+          {tab === 'akd' && akd && <Kurumsal akdData={akd} />}
 
-        {tab === 'takas' && (
-          <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden">
-            <table className="w-full text-left text-[12px]">
-              <thead className="bg-[#1a1a1d] text-zinc-400 uppercase font-bold text-[10px] tracking-wider border-b border-white/5">
-                <tr>
-                  <th className="px-5 py-3 font-bold">KURUM</th>
-                  <th className="px-5 py-3 text-right font-bold">TOPLAM LOT</th>
-                  <th className="px-5 py-3 text-right font-bold">% PAY</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {takas?.holders?.map((h: any, i: number) => (
-                  <tr key={i} className="hover:bg-white/[0.02]">
-                    <td className="px-5 py-3.5 text-zinc-200 font-bold">{h.kurum}</td>
-                    <td className="px-5 py-3.5 font-mono text-zinc-400 text-right">{h.toplam_lot}</td>
-                    <td className="px-5 py-3.5 font-mono text-[#00ff88] text-right font-bold">{h.pay}</td>
+          {tab === 'takas' && (
+            <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden">
+              <table className="w-full text-left text-[12px]">
+                <thead className="bg-[#1a1a1d] text-zinc-400 uppercase font-bold text-[10px] tracking-wider border-b border-white/5">
+                  <tr>
+                    <th className="px-5 py-3 font-bold">KURUM</th>
+                    <th className="px-5 py-3 text-right font-bold">TOPLAM LOT</th>
+                    <th className="px-5 py-3 text-right font-bold">% PAY</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {tab === 'grafik' && (
-          <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden aspect-square relative">
-            <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0c]">
-              <iframe
-                src={`https://s.tradingview.com/widgetembed/?frameElementId=tw&symbol=${stock?.exchange === 'Hesaplanan' && symbol === 'GA' ? 'FX_IDC%3AXAUUSD' : `${stock?.exchange || 'BIST'}%3A${symbol}`
-                  }&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=1a1a1d&theme=dark`}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-              ></iframe>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {takas?.holders?.map((h: any, i: number) => (
+                    <tr key={i} className="hover:bg-white/[0.02]">
+                      <td className="px-5 py-3.5 text-zinc-200 font-bold">{h.kurum}</td>
+                      <td className="px-5 py-3.5 font-mono text-zinc-400 text-right">{h.toplam_lot}</td>
+                      <td className="px-5 py-3.5 font-mono text-[#00ff88] text-right font-bold">{h.pay}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+
+          {tab === 'grafik' && (
+            <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden aspect-square relative">
+              <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0c]">
+                <iframe
+                  src={`https://s.tradingview.com/widgetembed/?frameElementId=tw&symbol=${stock?.exchange === 'Hesaplanan' && symbol === 'GA' ? 'FX_IDC%3AXAUUSD' : `${stock?.exchange || 'BIST'}%3A${symbol}`
+                    }&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=1a1a1d&theme=dark`}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                ></iframe>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
+    </div >
   );
 };
 
