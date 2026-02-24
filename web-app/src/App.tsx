@@ -849,42 +849,54 @@ const SubViewDetail = ({ view, onBack, bultenData }: { view: string, onBack: () 
             )}
 
             {view === 'Teknik Tarama' && data?.map((item: any, i: number) => (
-              <div key={i} className="bg-[#111114] border border-white/5 p-4 rounded-2xl flex justify-between items-center">
+              <div key={i} className="bg-[#111114] border border-white/5 p-4 rounded-2xl flex justify-between items-center hover:bg-white/[0.02] transition-colors group">
                 <div>
-                  <div className="font-bold text-white text-[16px]">{item.symbol}</div>
-                  <div className="text-xs text-zinc-500 mt-1">Fiyat: {item.price} ₺</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-bold text-white text-[17px]">{item.symbol}</div>
+                    {item.volume === 'Yüksek' && (
+                      <div className="bg-orange-500/10 text-orange-500 text-[9px] font-black px-1.5 py-0.5 rounded border border-orange-500/20 uppercase tracking-widest flex items-center gap-1">
+                        <Zap className="w-2 h-2 fill-orange-500" /> HACİM
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-bold mt-1" style={{ color: item.color }}>{item.status}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block" style={{ backgroundColor: `${item.color}20`, color: item.color, border: `1px solid ${item.color}40` }}>
-                    {item.status}
-                  </div>
-                  <div className="text-[11px] text-zinc-400 mt-1 font-mono">RSI: {item.rsi}</div>
+                  <div className="text-[16px] font-black text-white">{item.price} ₺</div>
+                  <div className="text-[11px] text-zinc-500 mt-1 font-mono font-bold">RSI: {item.rsi}</div>
                 </div>
               </div>
             ))}
 
             {(view === 'AKD Tarama' || view === 'Takas Tarama') && data?.map((item: any, i: number) => (
-              <div key={i} className="bg-[#111114] border border-white/5 p-4 rounded-2xl flex justify-between items-center">
+              <div key={i} className="bg-[#111114] border border-white/5 p-4 rounded-2xl flex justify-between items-center hover:bg-white/[0.02] transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-400 font-bold border border-white/5">{item.kurum.substring(0, 1)}</div>
-                  <div className="font-bold text-white">{item.kurum}</div>
+                  <div className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center text-zinc-400 font-black border border-white/5 text-lg shadow-inner">{item.kurum.substring(0, 1)}</div>
+                  <div>
+                    <div className="font-bold text-white text-[15px]">{item.kurum}</div>
+                    <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight mt-0.5">{item.detay}</div>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-bold text-[15px]" style={{ color: item.color }}>{item.net_hacim}</div>
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-tighter" style={{ color: item.color }}>{item.yon}</div>
+                  <div className="font-black text-[17px] tracking-tight" style={{ color: item.color }}>{item.net_hacim}</div>
+                  <div className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-0.5 flex items-center justify-end gap-1">
+                    <span style={{ color: item.color }}>{item.yon}</span>
+                  </div>
                 </div>
               </div>
             ))}
 
             {view === 'KAP Ajan' && (
-              <div className="space-y-3">
+              <div className="space-y-3 pb-10">
                 {data?.map((item: any, i: number) => (
-                  <div key={i} className={`p-4 rounded-2xl border ${item.urgent ? 'bg-red-900/10 border-red-500/20' : 'bg-[#111114] border-white/5'}`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${item.urgent ? 'bg-red-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>{item.source}</span>
-                      <span className="text-[11px] text-zinc-500 font-mono">{item.time}</span>
+                  <div key={i} className={`p-4 rounded-2xl border transition-all active:scale-[0.99] ${item.urgent ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.05)]' : 'bg-[#111114] border-white/5'}`}>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded border tracking-widest ${item.urgent ? 'bg-red-500 border-red-400 text-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}>{item.source}</span>
+                      <span className="text-[11px] text-zinc-500 font-mono font-bold flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3 text-zinc-700" /> {item.time}
+                      </span>
                     </div>
-                    <div className={`text-[14px] font-medium leading-relaxed ${item.urgent ? 'text-red-200' : 'text-zinc-200'}`}>{item.title}</div>
+                    <div className={`text-[15px] font-bold leading-snug ${item.urgent ? 'text-white' : 'text-zinc-200'}`}>{item.title}</div>
                   </div>
                 ))}
               </div>
