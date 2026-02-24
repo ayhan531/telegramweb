@@ -111,6 +111,19 @@ app.get('/api/takas/:symbol', async (req, res) => {
     }
 });
 
+// Geçmiş Veri (Grafik İçin) Endpoint'i
+app.get('/api/history/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    try {
+        // scanner_api.py veya tv_api.py üzerinden yfinance verisi çekilebilir
+        const data = await getCachedExec(`python3 api/tv_api.py ${symbol} history`, `history_${symbol}`);
+        res.json(data);
+    } catch (error) {
+        console.error('Geçmiş Veri API Hatası:', error);
+        res.status(500).json({ error: 'Geçmiş veriler alınamadı' });
+    }
+});
+
 // Bülten Verisi Endpoint'i
 app.get('/api/bulten', async (req, res) => {
     try {

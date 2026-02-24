@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Building2, MoreHorizontal, FileText, Briefcase, Home, Edit2, Star, Activity, ArrowLeft, RefreshCw, ChevronDown, Bell, ArrowUpRight, ArrowDownRight, Copy } from 'lucide-react';
+import { Search, Building2, MoreHorizontal, FileText, Briefcase, Home, Edit2, Star, Activity, ArrowLeft, RefreshCw, ChevronDown, Bell, ArrowUpRight, ArrowDownRight, Copy, Zap } from 'lucide-react';
 import axios from 'axios';
+import Chart from 'react-apexcharts';
 
 const API_BASE = '/api';
 
@@ -106,10 +107,13 @@ const App: React.FC = () => {
 };
 
 const LoadingView = ({ label }: { label: string }) => (
-  <div className="flex flex-col items-center justify-center pt-40 animate-fade-in">
-    <RefreshCw className="w-10 h-10 text-cyan-400 animate-spin mb-4" />
-    <div className="text-zinc-500 font-medium tracking-wide">{label}</div>
-    <div className="text-[11px] text-zinc-700 mt-2">TradingView üzerinden canlı veriler alınıyor...</div>
+  <div className="flex flex-col items-center justify-center pt-40 animate-fade-in text-center px-10">
+    <div className="relative mb-6">
+      <RefreshCw className="w-12 h-12 text-cyan-400 animate-spin" />
+      <Zap className="w-5 h-5 text-yellow-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+    </div>
+    <div className="text-white font-black text-xl tracking-tight mb-2">{label}</div>
+    <div className="text-[12px] text-zinc-500 font-medium">Foreks (Bigpara) altyapısı ile gerçek zamanlı veriler işleniyor...</div>
   </div>
 );
 
@@ -550,12 +554,16 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
   const [stock, setStock] = useState<any>(null);
   const [akd, setAkd] = useState<any>(null);
   const [takas, setTakas] = useState<any>(null);
+  const [scan, setScan] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
   const [tab, setTab] = useState('derinlik');
 
   useEffect(() => {
     axios.get(`${API_BASE}/stock/${symbol}`).then(res => setStock(res.data)).catch(console.error);
     axios.get(`${API_BASE}/akd/${symbol}`).then(res => setAkd(res.data)).catch(console.error);
     axios.get(`${API_BASE}/takas/${symbol}`).then(res => setTakas(res.data)).catch(console.error);
+    axios.get(`${API_BASE}/scan/${symbol}`).then(res => setScan(res.data)).catch(console.error);
+    axios.get(`${API_BASE}/history/${symbol}`).then(res => setHistory(res.data)).catch(console.error);
   }, [symbol]);
 
   return (
@@ -600,15 +608,16 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
             </div>
           )}
 
-          <div className="flex bg-[#111114] rounded-xl p-1.5 border border-white/5 justify-between">
-            <button onClick={() => setTab('derinlik')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'derinlik' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Derinlik</button>
+          <div className="flex bg-[#111114] rounded-xl p-1.5 border border-white/5 justify-between gap-1 overflow-x-auto hide-scrollbar">
+            <button onClick={() => setTab('derinlik')} className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'derinlik' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'text-zinc-500'}`}>Derinlik</button>
             {stock?.exchange === 'BIST' && (
               <>
-                <button onClick={() => setTab('akd')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'akd' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>AKD</button>
-                <button onClick={() => setTab('takas')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'takas' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Takas</button>
+                <button onClick={() => setTab('teknik')} className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'teknik' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'text-zinc-500'}`}>Teknik</button>
+                <button onClick={() => setTab('akd')} className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'akd' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'text-zinc-500'}`}>AKD</button>
+                <button onClick={() => setTab('takas')} className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'takas' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-zinc-500'}`}>Takas</button>
               </>
             )}
-            <button onClick={() => setTab('grafik')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'grafik' ? 'bg-[#2a2a2d] text-white shadow-lg' : 'text-zinc-500'}`}>Grafik</button>
+            <button onClick={() => setTab('grafik')} className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'grafik' ? 'bg-white/10 text-white' : 'text-zinc-500'}`}>Grafik</button>
           </div>
 
           {tab === 'derinlik' && (
@@ -637,6 +646,66 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
           )}
 
           {tab === 'akd' && akd && <Kurumsal akdData={akd} />}
+
+          {tab === 'teknik' && (
+            <div className="space-y-4">
+              <div className="bg-[#111114] rounded-2xl p-5 border border-white/5">
+                <h3 className="text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-4">Teknik Göstergeler (Real-time)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-black/40 p-3 rounded-xl border border-white/5 text-center">
+                    <div className="text-[10px] text-zinc-500 font-bold uppercase mb-1">RSI (14)</div>
+                    <div className={`text-lg font-black ${scan?.rsi_raw > 70 ? 'text-red-400' : scan?.rsi_raw < 30 ? 'text-[#00ff88]' : 'text-cyan-400'}`}>
+                      {scan?.rsi || '---'}
+                    </div>
+                  </div>
+                  <div className="bg-black/40 p-3 rounded-xl border border-white/5 text-center">
+                    <div className="text-[10px] text-zinc-500 font-bold uppercase mb-1">MACD</div>
+                    <div className="text-lg font-black text-white">{scan?.macd || '---'}</div>
+                  </div>
+                  <div className="col-span-2 bg-black/40 p-3 rounded-xl border border-white/5 flex justify-between items-center">
+                    <div className="text-[10px] text-zinc-500 font-bold uppercase">Hareketli Ortalamalar</div>
+                    <div className="bg-cyan-500/10 text-cyan-400 text-[11px] font-black px-3 py-1 rounded-full border border-cyan-500/20">{scan?.moving_averages || 'Güçlü Al'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {history.length > 0 && (
+                <div className="bg-[#111114] rounded-2xl p-3 border border-white/5 overflow-hidden">
+                  <Chart
+                    options={{
+                      chart: { id: 'price-chart', toolbar: { show: false }, background: 'transparent' },
+                      xaxis: { categories: history.map(h => h.date.split('-').slice(1).join('/')), labels: { style: { colors: '#71717a', fontSize: '10px' } }, axisBorder: { show: false } },
+                      yaxis: { labels: { style: { colors: '#71717a', fontSize: '10px' } } },
+                      grid: { borderColor: 'rgba(255,255,255,0.05)', strokeDashArray: 4 },
+                      colors: ['#06b6d4'],
+                      stroke: { curve: 'smooth', width: 3 },
+                      fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0, stops: [0, 90, 100] } },
+                      tooltip: { theme: 'dark' },
+                      theme: { mode: 'dark' }
+                    }}
+                    series={[{ name: 'Fiyat', data: history.map(h => h.price) }]}
+                    type="area"
+                    height={200}
+                  />
+                </div>
+              )}
+
+              <div className="bg-[#111114] rounded-2xl p-5 border border-white/5">
+                <h3 className="text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-4">Son KAP Bildirimleri</h3>
+                <div className="space-y-4">
+                  {scan?.kap_news?.map((news: any, i: number) => (
+                    <div key={i} className="flex gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 flex-shrink-0"></div>
+                      <div>
+                        <div className="text-[13px] font-bold text-zinc-200 leading-snug">{news.title}</div>
+                        <div className="text-[10px] text-zinc-500 font-bold mt-1 uppercase tracking-tighter">{news.date} • KAP AJAN</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {tab === 'takas' && (
             <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden">

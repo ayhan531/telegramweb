@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, MenuButtonWebApp
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from dotenv import load_dotenv
-from api.tv_api import get_tv_stock_data, get_tv_stock_history
+from api.tv_api import get_tv_stock_data, get_tv_stock_history, get_unified_data
 from api.real_akd_api import get_real_akd_data
 from utils.chart_generator import create_stock_chart
+import sqlite3
+import asyncio
 
 # Load environment variables from root
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +31,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/derinlik [SEMBOL] - Piyasa verileri (Örn: THYAO, BTCUSDT)\n"
         "/grafik [SEMBOL]   - Teknik analiz grafiği\n"
         "/akd [SEMBOL]      - Aracı Kurum Dağılımı (BIST)\n"
+        "/alarm [SEMBOL] [FIYAT] - Fiyat alarmı kur (Örn: /alarm THYAO 320)\n"
+        "/alarmlar         - Aktif alarmları listele\n"
         "/yardim           - Detaylı dokümantasyon"
     )
     
@@ -135,7 +139,123 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(f"```\n{text}\n```", parse_mode='MarkdownV2')
 
+# --- Alarm İşlemleri ---
+def get_db_connection():
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/database.sqlite')
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+async def alarm_kur(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 2:
+        await update.message.reply_text("Kullanım: `/alarm [SEMBOL] [FIYAT]`\nÖrn: `/alarm THYAO 315.50`", parse_mode='Markdown')
+        return
+    
+    symbol = context.args[0].upper()
+    try:
+        target_price = float(context.args[1].replace(',', '.'))
+    except ValueError:
+        await update.message.reply_text("HATA: Geçersiz fiyat formatı.")
+        return
+
+    # Mevcut fiyatı kontrol et (koşulu belirlemek için)
+    data = get_unified_data(symbol)
+    if "error" in data:
+        await update.message.reply_text(f"HATA: {symbol} sembolü bulunamadı.")
+        return
+    
+    current_price = data['price']
+    condition = 'ABOVE' if target_price > current_price else 'BELOW'
+    cond_text = "üzerine çıkınca" if condition == 'ABOVE' else "altına inince"
+
+    user_id = str(update.effective_user.id)
+    conn = get_db_connection()
+    conn.execute("INSERT INTO alarms (user_id, symbol, target_price, condition) VALUES (?, ?, ?, ?)",
+                 (user_id, symbol, target_price, condition))
+    conn.commit()
+    conn.close()
+
+    await update.message.reply_text(f"✅ *ALARM KURULDU*\n{symbol} fiyatı {target_price} {cond_text} haber vereceğim.", parse_mode='Markdown')
+
+async def alarmlar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    conn = get_db_connection()
+    rows = conn.execute("SELECT id, symbol, target_price, condition FROM alarms WHERE user_id = ? AND is_active = 1", (user_id,)).fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("Aktif alarmınız bulunmuyor.")
+        return
+
+    text = "🔔 *AKTİF ALARMLARINIZ*\n\n"
+    for r in rows:
+        cond = "↑" if r['condition'] == 'ABOVE' else "↓"
+        text += f"ID: `{r['id']}` | {r['symbol']} | {cond} {r['target_price']}\n"
+    
+    text += "\nAlarm silmek için: `/alarmsil [ID]`"
+    await update.message.reply_text(text, parse_mode='Markdown')
+
+async def alarm_sil(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Kullanım: `/alarmsil [ID]`")
+        return
+    
+    alarm_id = context.args[0]
+    user_id = str(update.effective_user.id)
+    
+    conn = get_db_connection()
+    res = conn.execute("DELETE FROM alarms WHERE id = ? AND user_id = ?", (alarm_id, user_id))
+    conn.commit()
+    deleted = res.rowcount
+    conn.close()
+
+    if deleted:
+        await update.message.reply_text(f"✅ Alarm `{alarm_id}` başarıyla silindi.", parse_mode='Markdown')
+    else:
+        await update.message.reply_text("HATA: Alarm bulunamadı veya size ait değil.")
+
+async def alarm_check_loop(application):
+    logging.info("Alarm kontrol döngüsü başlatıldı.")
+    while True:
+        try:
+            conn = get_db_connection()
+            alarms = conn.execute("SELECT * FROM alarms WHERE is_active = 1").fetchall()
+            
+            # Sembol bazlı grupla (Verimlilik için)
+            symbols = list(set([a['symbol'] for a in alarms]))
+            prices = {}
+            for s in symbols:
+                data = get_unified_data(s)
+                if "price" in data:
+                    prices[s] = data['price']
+            
+            for a in alarms:
+                s = a['symbol']
+                if s not in prices: continue
+                
+                curr = prices[s]
+                target = a['target_price']
+                cond = a['condition']
+                
+                triggered = False
+                if cond == 'ABOVE' and curr >= target: triggered = True
+                elif cond == 'BELOW' and curr <= target: triggered = True
+                
+                if triggered:
+                    text = f"🚨 *FİYAT ALARMI TETİKLENDİ!*\n\n*{s}* şu an *{curr}* seviyesinde.\n(Hedef: {target})"
+                    await application.bot.send_message(chat_id=a['user_id'], text=text, parse_mode='Markdown')
+                    conn.execute("UPDATE alarms SET is_active = 0 WHERE id = ?", (a['id'],))
+                    conn.commit()
+            
+            conn.close()
+        except Exception as e:
+            logging.error(f"Alarm check error: {e}")
+            
+        await asyncio.sleep(60) # Her dakika kontrol et
+
 async def post_init(application):
+    # Arka plan görevini başlat
+    asyncio.create_task(alarm_check_loop(application))
     webapp_url = os.getenv("RENDER_EXTERNAL_URL", "https://telegramweb-gd62.onrender.com")
     try:
         await application.bot.set_chat_menu_button(
@@ -157,6 +277,9 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('derinlik', derinlik))
         application.add_handler(CommandHandler('grafik', grafik))
         application.add_handler(CommandHandler('akd', akd))
+        application.add_handler(CommandHandler('alarm', alarm_kur))
+        application.add_handler(CommandHandler('alarmlar', alarmlar))
+        application.add_handler(CommandHandler('alarmsil', alarm_sil))
         
         print("Bot başlatılıyor...")
         application.run_polling(drop_pending_updates=True)
