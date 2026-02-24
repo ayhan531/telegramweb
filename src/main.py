@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, MenuButtonWebApp
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from dotenv import load_dotenv
-from api.tv_api import get_tv_stock_data, get_tv_stock_history, get_unified_data
+from api.tv_api import get_unified_data, get_history_data
 from api.real_akd_api import get_real_akd_data
 from utils.chart_generator import create_stock_chart
 import sqlite3
@@ -70,9 +70,9 @@ async def derinlik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     symbol = context.args[0].upper()
-    data = get_tv_stock_data(symbol)
+    data = get_unified_data(symbol)
     
-    if not data:
+    if not data or "error" in data:
         await update.message.reply_text(f"HATA: {symbol} verisi bulunamadi.")
         return
         
@@ -81,13 +81,13 @@ async def derinlik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"PIYASA VERISI: {symbol}\n"
         f"{'-' * 30}\n"
         f"{'Sirket:':<15} {data['name']}\n"
-        f"{'Fiyat:':<15} {data['price']:.2f} {data['currency']}\n"
-        f"{'Acilis:':<15} {data['open']:.2f}\n"
-        f"{'Yuksek:':<15} {data['high']:.2f}\n"
-        f"{'Dusuk:':<15} {data['low']:.2f}\n"
-        f"{'Hacim:':<15} {data['volume']:,}\n"
+        f"{'Fiyat:':<15} {data['price']:.2f} TRY\n"
+        f"{'Acilis:':<15} {data['open']}\n"
+        f"{'Yuksek:':<15} {data['high']}\n"
+        f"{'Dusuk:':<15} {data['low']}\n"
+        f"{'Hacim:':<15} {data['volume']}\n"
         f"{'-' * 30}\n"
-        f"Kaynak: Foreks (Anlik)"
+        f"Kaynak: {data.get('source', 'Borsa')}"
     )
     await update.message.reply_text(f"```\n{text}\n```", parse_mode='MarkdownV2')
 
@@ -97,11 +97,17 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     symbol = context.args[0].upper()
+    raw_hist = get_history_data(symbol)
     
-    hist = get_tv_stock_history(symbol)
-    if hist is None or hist.empty:
+    if not raw_hist:
         await update.message.reply_text(f"HATA: {symbol} gecmis verisi bulunamadi.")
         return
+    
+    # Chart expects a DataFrame
+    hist = pd.DataFrame(raw_hist)
+    hist['Date'] = pd.to_datetime(hist['date'])
+    hist.set_index('Date', inplace=True)
+    hist.rename(columns={'price': 'Close'}, inplace=True)
         
     chart_path = f"{symbol}_chart.png"
     if create_stock_chart(hist, symbol, chart_path):
