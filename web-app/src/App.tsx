@@ -783,7 +783,7 @@ const SubViewDetail = ({ view, onBack, bultenData }: { view: string, onBack: () 
     if (view === 'Teknik Tarama') category = 'teknik';
     else if (view === 'AKD Tarama') category = 'akd';
     else if (view === 'KAP Ajan') category = 'kap';
-    else if (view === 'Takas Tarama') category = 'akd'; // Takas için de AKD benzeri tarama kullanıyoruz
+    else if (view === 'Takas Tarama') category = 'takas';
 
     if (category) {
       setLoading(true);
