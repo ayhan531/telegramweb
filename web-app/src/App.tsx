@@ -87,12 +87,12 @@ const App: React.FC = () => {
     }
 
     switch (currentView) {
-      case 'anasayfa': return <Anasayfa user={user} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
+      case 'anasayfa': return <Anasayfa user={user} bultenData={bultenData} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
       case 'kurumsal': return <Kurumsal akdData={akdData} />;
       case 'bulten': return bultenLoading ? <LoadingView label="Bülten hazırlanıyor..." /> : <Bulten data={bultenData} user={user} />;
       case 'fon': return fonLoading ? <LoadingView label="Fonlar listeleniyor..." /> : <Fon data={fonData} />;
       case 'diger': return <Diger bultenData={bultenData} />;
-      default: return <Anasayfa user={user} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
+      default: return <Anasayfa user={user} bultenData={bultenData} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
     }
   };
 
@@ -148,7 +148,7 @@ const HeaderBar = ({ title }: { title: string }) => (
   </div>
 );
 
-const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, favorites: string[], onSearch: (s: string) => void, onToggleFavorite: (s: string) => void }) => {
+const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: { user: any, bultenData: any, favorites: string[], onSearch: (s: string) => void, onToggleFavorite: (s: string) => void }) => {
   const [marketTab, setMarketTab] = useState('BIST');
   const [val, setVal] = useState('');
 
@@ -184,15 +184,60 @@ const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, 
           </div>
         </form>
 
-        <h2 className="text-[22px] font-bold mt-2 tracking-tight">
-          {user?.first_name ? `Hoş geldin ${user.first_name}!` : 'Hoş geldiniz!'} {new Date().getDay() === 0 ? '☁️' : '🚀'}
-        </h2>
+        <div className="flex justify-between items-end mb-4">
+          <div>
+            <h2 className="text-[22px] font-bold tracking-tight">
+              {user?.first_name ? `Hoş geldin ${user.first_name}!` : 'Hoş geldiniz!'} {new Date().getDay() === 0 ? '☁️' : '🚀'}
+            </h2>
+            <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-wider mt-1">{bultenData?.date || 'PIYASA ÖZETİ'}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-zinc-500 text-[10px] font-black uppercase mb-1">{bultenData?.index_name || 'BIST 100'}</div>
+            <div className="flex items-center gap-2 justify-end font-black">
+              <span className="text-lg">{bultenData?.price || '---'}</span>
+              <span className={`text-[11px] px-1.5 py-0.5 rounded ${bultenData?.change?.includes('+') ? 'bg-[#00ff88]/10 text-[#00ff88]' : 'bg-[#ff3b30]/10 text-[#ff3b30]'}`}>
+                {bultenData?.change || '0.00%'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Market Quick Overview */}
+        <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 -mx-4 px-4">
+          <QuickStat title="ALTIN (GRAM)" value={bultenData?.commodity_summary?.[0]?.price} change={bultenData?.commodity_summary?.[0]?.change} />
+          <QuickStat title="BITCOIN" value={bultenData?.crypto_summary?.[0]?.price} change={bultenData?.crypto_summary?.[0]?.change} color="text-orange-400" />
+          <QuickStat title="DOLAR" value="34,42" change="+0.05%" color="text-cyan-400" />
+        </div>
       </div>
 
-      <div className="w-full h-[1px] bg-white/5 mt-2"></div>
+      <div className="w-full h-[1px] bg-white/5"></div>
+
+      {/* Mini Active Lists */}
+      <div className="px-4 py-4 grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1">En Çok Artanlar</div>
+          {bultenData?.gainers?.slice(0, 3).map((g: any, i: number) => (
+            <div key={i} onClick={() => onSearch(g.symbol)} className="bg-[#111114] border border-white/5 rounded-xl p-3 flex justify-between items-center active:bg-white/5">
+              <span className="font-bold text-sm">{g.symbol}</span>
+              <span className="text-[#00ff88] text-[11px] font-bold">{g.change}</span>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2">
+          <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1">En Çok Düşenler</div>
+          {bultenData?.losers?.slice(0, 3).map((l: any, i: number) => (
+            <div key={i} onClick={() => onSearch(l.symbol)} className="bg-[#111114] border border-white/5 rounded-xl p-3 flex justify-between items-center active:bg-white/5">
+              <span className="font-bold text-sm">{l.symbol}</span>
+              <span className="text-[#ff3b30] text-[11px] font-bold">{l.change}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="w-full h-[1px] bg-white/5 mb-6"></div>
 
       {/* Market Tabs */}
-      <div className="flex px-4 mt-6 gap-2">
+      <div className="flex px-4 gap-2">
         {['BIST', 'KRİPTO', 'EMTİA'].map(t => (
           <button
             key={t}
@@ -211,7 +256,7 @@ const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, 
         </div>
 
         {filteredFavorites.length === 0 ? (
-          <div className="flex flex-col items-center justify-center pt-20 text-center px-6">
+          <div className="flex flex-col items-center justify-center pt-10 pb-20 text-center px-6">
             <Star className="w-14 h-14 text-[#222226] mb-4" strokeWidth={1} />
             <h3 className="text-[17px] font-bold tracking-wide">{val ? 'Sonuç Bulunamadı' : '"Favoriler" Listesi Boş'}</h3>
             <p className="text-zinc-500 text-[13px] mt-2 leading-relaxed max-w-[280px]">
@@ -229,6 +274,16 @@ const Anasayfa = ({ user, favorites, onSearch, onToggleFavorite }: { user: any, 
     </div>
   );
 };
+
+const QuickStat = ({ title, value, change, color = 'text-white' }: any) => (
+  <div className="min-w-[130px] bg-[#111114] border border-white/5 p-3 rounded-2xl">
+    <div className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1.5">{title}</div>
+    <div className={`text-[15px] font-bold truncate ${color}`}>{value || '---'}</div>
+    <div className={`text-[10px] font-bold mt-0.5 ${change?.includes('+') ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>
+      {change || '0.00%'}
+    </div>
+  </div>
+);
 
 const FavoriteCard = ({ symbol, onSelect, onRemove }: any) => {
   const [data, setData] = useState<any>(null);
