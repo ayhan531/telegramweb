@@ -42,12 +42,21 @@ const App: React.FC = () => {
       console.error(err);
     }
 
+    const fetchGlobalData = () => {
+      setBultenLoading(false); // First load handles initial screen, polling should be silent
+      setFonLoading(false);
+
+      axios.get(`${API_BASE}/akd/THYAO`).then(res => setAkdData(res.data)).catch(console.error);
+      axios.get(`${API_BASE}/bulten`).then(res => setBultenData(res.data)).catch(console.error).finally(() => setBultenLoading(false));
+      axios.get(`${API_BASE}/fon`).then(res => setFonData(res.data)).catch(console.error).finally(() => setFonLoading(false));
+    };
+
     setBultenLoading(true);
     setFonLoading(true);
+    fetchGlobalData();
 
-    axios.get(`${API_BASE}/akd/THYAO`).then(res => setAkdData(res.data)).catch(console.error);
-    axios.get(`${API_BASE}/bulten`).then(res => setBultenData(res.data)).catch(console.error).finally(() => setBultenLoading(false));
-    axios.get(`${API_BASE}/fon`).then(res => setFonData(res.data)).catch(console.error).finally(() => setFonLoading(false));
+    const interval = setInterval(fetchGlobalData, 30000); // 30 saniyede bir ana verileri yenile
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -225,7 +234,13 @@ const FavoriteCard = ({ symbol, onSelect, onRemove }: any) => {
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {
-    axios.get(`${API_BASE}/stock/${symbol}`).then(res => setData(res.data)).catch(console.error);
+    const fetchData = () => {
+      axios.get(`${API_BASE}/stock/${symbol}`).then(res => setData(res.data)).catch(console.error);
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 15000); // 15 saniyede bir güncelle
+    return () => clearInterval(interval);
   }, [symbol]);
 
   return (
@@ -559,11 +574,22 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
   const [tab, setTab] = useState('derinlik');
 
   useEffect(() => {
-    axios.get(`${API_BASE}/stock/${symbol}`).then(res => setStock(res.data)).catch(console.error);
-    axios.get(`${API_BASE}/akd/${symbol}`).then(res => setAkd(res.data)).catch(console.error);
-    axios.get(`${API_BASE}/takas/${symbol}`).then(res => setTakas(res.data)).catch(console.error);
-    axios.get(`${API_BASE}/scan/${symbol}`).then(res => setScan(res.data)).catch(console.error);
-    axios.get(`${API_BASE}/history/${symbol}`).then(res => setHistory(res.data)).catch(console.error);
+    const fetchAllData = () => {
+      axios.get(`${API_BASE}/stock/${symbol}`).then(res => setStock(res.data)).catch(console.error);
+      axios.get(`${API_BASE}/scan/${symbol}`).then(res => setScan(res.data)).catch(console.error);
+    };
+
+    const fetchStaticData = () => {
+      axios.get(`${API_BASE}/akd/${symbol}`).then(res => setAkd(res.data)).catch(console.error);
+      axios.get(`${API_BASE}/takas/${symbol}`).then(res => setTakas(res.data)).catch(console.error);
+      axios.get(`${API_BASE}/history/${symbol}`).then(res => setHistory(res.data)).catch(console.error);
+    };
+
+    fetchAllData();
+    fetchStaticData();
+
+    const interval = setInterval(fetchAllData, 10000); // Fiyat ve teknik veriyi 10 saniyede bir güncelle
+    return () => clearInterval(interval);
   }, [symbol]);
 
   return (
