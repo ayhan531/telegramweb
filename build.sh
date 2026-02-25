@@ -6,6 +6,7 @@ echo "--- BUILDING PROJECT ---"
 # 1. Install Python dependencies
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
+playwright install chromium
 
 # 2. Build Frontend
 echo "Building Frontend (web-app)..."
