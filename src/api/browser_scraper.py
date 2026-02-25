@@ -167,10 +167,11 @@ async def scrape_isyatirim_akd_headless(symbol):
                     yon = r.get("AKD_YON", "")
                     if not k:
                         continue
-                        
                     entry = {"kurum": k[:20], "lot": str(int(abs(float(lot)))), "maliyet": "---", "pay": 0}
-                    if yon == "A" or (lot and float(lot) > 0): buyers.append(entry)
-                    elif yon == "S" or (lot and float(lot) < 0): sellers.append(entry)
+                    if yon == "A" or (lot and float(lot) > 0):
+                        buyers.append(entry)
+                    elif yon == "S" or (lot and float(lot) < 0):
+                        sellers.append(entry)
                 
                 result["buyers"] = sorted(buyers, key=lambda x: float(x["lot"]), reverse=True)[:10]
                 result["sellers"] = sorted(sellers, key=lambda x: float(x["lot"]), reverse=True)[:10]
