@@ -138,14 +138,12 @@ def get_akd_from_bigpara_scrape(symbol):
         pass
     return None
 
-def get_real_akd_data(symbol):
+async def get_real_akd_data(symbol):
     """
     Ana AKD fonksiyonu. Önce İş Yatırım API'sini dener, sonra Bigpara scraping.
     Eğer hepsi başarısız olursa, Playwright kullanan agressif Headless Scraper'a (browser_scraper.py) devredilir.
     """
-    import asyncio
-    
-    # 1. İş Yatırım API (en güvenilir)
+    # 1. İş Yatırım API (en güvenilir) - requests blocking olduğu için to_thread kullanılabilir ama şimdilik doğrudan
     data = get_akd_from_isyatirim(symbol)
     if data and (data["buyers"] or data["sellers"]):
         return data
@@ -156,12 +154,9 @@ def get_real_akd_data(symbol):
         return data
         
     # 3. Son çare: Agresif Başsız Tarayıcı Kazıması (Browser Scraper)
-    # Eger modül import edilebilirse, async şekilde çalıştır
     try:
         from api.browser_scraper import scrape_master
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        headless_data = loop.run_until_complete(scrape_master(symbol))
+        headless_data = await scrape_master(symbol)
         if headless_data and (headless_data.get("buyers") or headless_data.get("status") != "Hata (Veri Bulunamadı)"):
             return headless_data
     except Exception as e:
@@ -186,7 +181,8 @@ if __name__ == "__main__":
     sys.stderr = open(os.devnull, 'w')
     
     symbol = sys.argv[1].upper() if len(sys.argv) > 1 else 'THYAO'
-    res = get_real_akd_data(symbol)
+    import asyncio
+    res = asyncio.run(get_real_akd_data(symbol))
 
     sys.stdout = _orig_stdout
     sys.stderr = _orig_stderr

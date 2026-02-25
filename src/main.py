@@ -124,7 +124,7 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     symbol = context.args[0].upper()
-    data = get_real_akd_data(symbol)
+    data = await get_real_akd_data(symbol)
     
     if not data or not data['buyers']:
         await update.message.reply_text(f"HATA: {symbol} icin gercek AKD verisi su an alinamiye.")
