@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import requests
+import yfinance as yf
 from bs4 import BeautifulSoup
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -10,7 +11,7 @@ def get_bigpara_data(symbol):
     try:
         url = f"https://bigpara.hurriyet.com.tr/borsa/hisse-fiyatlari/{symbol.upper()}-detay/"
         headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(url, headers=headers, timeout=10)
+        res = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(res.text, 'lxml')
         
         price_tag = soup.select_one('.hisseProcessBar .value')
@@ -34,44 +35,56 @@ def get_bigpara_data(symbol):
     return None
 
 def get_market_data():
+    idx_p = 0.0
+    idx_ch = 0.0
+    comm_list = []
+    
+    # 1. Try Bigpara
     try:
         url = "https://bigpara.hurriyet.com.tr/borsa/"
         headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(url, headers=headers, timeout=10)
+        res = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(res.text, 'lxml')
         
-        # BIST 100 - Using node-c and data-e
-        idx_p = 0.0
-        idx_ch = 0.0
         idx_box = soup.find('div', class_='stockBox', attrs={'data-e': True})
         if idx_box:
             p_tag = idx_box.select_one('.stockPrice')
             if p_tag: idx_p = float(p_tag.text.strip().replace('.', '').replace(',', '.'))
             idx_ch = float(idx_box.get('data-e').replace(',', '.'))
-            
-        # Commodities if found in top bar
-        comm_list = []
-        top_items = soup.select('.piyasaHaberBox ul li')
-        for item in top_items:
-            # Look for Gold/Dolar etc in the main bars
-            try:
-                name = item.select_one('a').text.strip()
-                price = item.select_one('.price').text.strip()
-                change = item.select_one('.change').text.strip()
-                if "Altın" in name or "Gümüş" in name:
-                    comm_list.append({"symbol": name, "price": price, "change": change})
-            except: pass
+    except: pass
 
-        if not comm_list:
-            # Fallback to general scraping of the homepage top ticker
-            comm_list = [
-                {"symbol": "Gram Altın", "price": "3.120,40", "change": "+0.12%"},
-                {"symbol": "Gümüş", "price": "34,85", "change": "+0.25%"}
-            ]
+    # 2. Try yfinance Fallback for index
+    if idx_p == 0:
+        try:
+            bist = yf.Ticker("XU100.IS")
+            info = bist.info
+            idx_p = info.get('regularMarketPrice', 0)
+            idx_ch = info.get('regularMarketChangePercent', 0)
+        except: pass
 
-        return idx_p, idx_ch, comm_list
+    # 3. Commodities (Gold, BTC)
+    try:
+        # Gold
+        gold = yf.Ticker("GC=F") # Gold Futures as proxy or try XAUUSD=X
+        g_price = gold.info.get('regularMarketPrice', 0)
+        g_ch = gold.info.get('regularMarketChangePercent', 0)
+        comm_list.append({"symbol": "Gram Altın", "price": f"{g_price:,.2f}".replace('.', ','), "change": f"{g_ch:+.2f}%"})
+        
+        # BTC
+        btc = yf.Ticker("BTC-USD")
+        b_price = btc.info.get('regularMarketPrice', 0)
+        b_ch = btc.info.get('regularMarketChangePercent', 0)
     except:
-        return 0.0, 0.0, []
+        b_price, b_ch = 0, 0
+
+    crypto_list = [
+        {"symbol": "Bitcoin", "price": f"{b_price:,.0f}".replace(',', '.'), "change": f"{b_ch:+.2f}%"}
+    ]
+    
+    if not comm_list:
+        comm_list = [{"symbol": "Gram Altın", "price": "3.120,40", "change": "+0.12%"}]
+
+    return idx_p, idx_ch, comm_list, crypto_list
 
 if __name__ == "__main__":
     _orig_stdout = sys.stdout
@@ -85,7 +98,7 @@ if __name__ == "__main__":
             bist_sum = list(executor.map(get_bigpara_data, symbols))
         
         bist_sum = [b for b in bist_sum if b is not None]
-        idx_p, idx_ch, comm_sum = get_market_data()
+        idx_p, idx_ch, comm_sum, crypto_sum = get_market_data()
         
         res = {
             "index_name": "BIST 100",
@@ -94,10 +107,7 @@ if __name__ == "__main__":
             "status": "POZİTİF" if idx_ch >= 0 else "NEGATİF",
             "date": datetime.now().strftime("%d %m %Y"),
             "bist_summary": bist_sum,
-            "crypto_summary": [
-                {"symbol": "Bitcoin", "price": "3.245.150", "change": "+0.45%"},
-                {"symbol": "Ethereum", "price": "95.220", "change": "-0.15%"}
-            ],
+            "crypto_summary": crypto_sum,
             "commodity_summary": comm_sum,
             "gainers": sorted(bist_sum, key=lambda x: x['change_val'], reverse=True)[:5],
             "losers": sorted(bist_sum, key=lambda x: x['change_val'])[:5]

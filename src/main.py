@@ -278,8 +278,11 @@ async def post_init(application):
 
 if __name__ == '__main__':
     token = os.getenv("TELEGRAM_BOT_TOKEN")
+    print(f"DEBUG: TELEGRAM_BOT_TOKEN status: {'Set' if token else 'NOT SET'}")
+    
     if not token or token == "your_bot_token_here":
-        print("Hata: TELEGRAM_BOT_TOKEN ayarlanmamış! Lütfen .env dosyasını güncelleyin.")
+        print("CRITICAL ERROR: TELEGRAM_BOT_TOKEN is missing or default!")
+        sys.exit(1)
     else:
         application = ApplicationBuilder().token(token).post_init(post_init).build()
         

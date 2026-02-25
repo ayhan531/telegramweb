@@ -55,24 +55,40 @@ async function getCachedExec(command, cacheKey) {
     if (cache[cacheKey] && (now - cache[cacheKey].timestamp < CACHE_DURATION)) {
         return cache[cacheKey].data;
     }
-    const { stdout, stderr } = await execAsync(command);
 
-    // Try to find the last valid JSON in stdout
-    let cleanOutput = stdout.trim();
-    const lines = cleanOutput.split('\n');
-    let data = null;
+    try {
+        const { stdout, stderr } = await execAsync(command);
 
-    for (let i = lines.length - 1; i >= 0; i--) {
-        try {
-            data = JSON.parse(lines[i]);
-            if (data) break;
-        } catch (e) { continue; }
+        if (stderr && !stdout) {
+            console.error(`Script Stderr (${cacheKey}):`, stderr);
+        }
+
+        const lines = stdout.trim().split('\n');
+        let data = null;
+
+        for (let i = lines.length - 1; i >= 0; i--) {
+            try {
+                const parsed = JSON.parse(lines[i]);
+                if (parsed && typeof parsed === 'object') {
+                    data = parsed;
+                    break;
+                }
+            } catch (e) { continue; }
+        }
+
+        if (!data) {
+            console.error(`Invalid JSON output from ${command}. Stdout:`, stdout);
+            throw new Error("Output contains no valid JSON");
+        }
+
+        cache[cacheKey] = { data, timestamp: now };
+        return data;
+    } catch (err) {
+        console.error(`Exec Error (${cacheKey}):`, err.message);
+        if (err.stdout) console.error("Exec Stdout:", err.stdout);
+        if (err.stderr) console.error("Exec Stderr:", err.stderr);
+        throw err;
     }
-
-    if (!data) throw new Error("Output contains no valid JSON");
-
-    cache[cacheKey] = { data, timestamp: now };
-    return data;
 }
 
 // Hisse Verisi Endpoint'i

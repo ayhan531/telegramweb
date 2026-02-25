@@ -8,8 +8,9 @@ python3 init_db.py
 echo "Starting Telegram Bot in background loop..."
 (
   while true; do
-    python3 main.py
-    echo "Bot crashed or stopped (likely Conflict with old instance). Restarting in 5 seconds..."
+    echo "--- Launching Bot at $(date) ---"
+    python3 main.py 2>&1
+    echo "Bot crashed or stopped with exit code $?. (Likely Conflict or Missing Token). Restarting in 5 seconds.."
     sleep 5
   done
 ) &
