@@ -5,6 +5,7 @@ import requests
 import urllib3
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+import asyncio
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -16,12 +17,20 @@ HEADERS = {
     'X-Requested-With': 'XMLHttpRequest',
 }
 
+# Create a global session to reuse cookies
+session = requests.Session()
+session.verify = False
+
 def get_akd_from_isyatirim(symbol):
     """
     İş Yatırım üzerinden gerçek AKD (Aracı Kurum Dağılımı) verisini çeker.
-    Endpoint: HisseAraciKurumDagilimi
+    Bypass 401 by getting cookies first.
     """
     try:
+        # 1. Warm up cookies if not already done
+        if not session.cookies:
+            session.get("https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/default.aspx", headers=HEADERS, timeout=10)
+            
         today = datetime.now().strftime("%d-%m-%Y")
         yesterday = (datetime.now() - timedelta(days=5)).strftime("%d-%m-%Y")
         
@@ -30,11 +39,20 @@ def get_akd_from_isyatirim(symbol):
             f"HisseAraciKurumDagilimi?hisse={symbol.upper()}&startdate={yesterday}&enddate={today}"
         )
         
-        resp = requests.get(url, headers=HEADERS, timeout=10, verify=False)
+        resp = session.get(url, headers=HEADERS, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             if data.get("ok") and data.get("value"):
                 return parse_akd_isyatirim(data["value"], symbol)
+        elif resp.status_code == 401:
+            # Retry once with fresh cookies
+            session.cookies.clear()
+            session.get("https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/default.aspx", headers=HEADERS, timeout=10)
+            resp = session.get(url, headers=HEADERS, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("ok") and data.get("value"):
+                    return parse_akd_isyatirim(data["value"], symbol)
     except Exception as e:
         pass
     return None
@@ -143,8 +161,6 @@ async def get_real_akd_data(symbol):
     Ana AKD fonksiyonu. Önce İş Yatırım API'sini dener, sonra Bigpara scraping.
     Eğer hepsi başarısız olursa, Playwright kullanan agressif Headless Scraper'a (browser_scraper.py) devredilir.
     """
-    import asyncio
-    
     # 1. İş Yatırım API (en güvenilir) - Blocking calls run in thread
     data = await asyncio.to_thread(get_akd_from_isyatirim, symbol)
     if data and (data["buyers"] or data["sellers"]):
