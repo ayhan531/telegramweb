@@ -5,6 +5,7 @@ echo "--- BUILDING PROJECT ---"
 
 # 1. Install Python dependencies
 echo "Installing Python dependencies..."
+pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 playwright install chromium
 

@@ -9,4 +9,4 @@ kaleido
 beautifulsoup4
 lxml
 gunicorn
-playwright==1.41.2
+playwright
