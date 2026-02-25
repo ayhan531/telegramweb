@@ -69,8 +69,11 @@ def parse_akd_isyatirim(records, symbol):
         return None
     
     # Tarihe göre sırala, en son gün
-    latest_date = max(r.get("AKD_TARIH", "") for r in records if r.get("AKD_TARIH"))
-    latest = [r for r in records if r.get("AKD_TARIH") == latest_date]
+    try:
+        latest_date = max(r.get("AKD_TARIH", "") for r in records if r.get("AKD_TARIH"))
+        latest = [r for r in records if r.get("AKD_TARIH") == latest_date]
+    except:
+        return None
     
     for r in latest:
         kurum = r.get("AKD_ARACILIK_UYESI", "").strip()
@@ -112,11 +115,15 @@ def parse_akd_isyatirim(records, symbol):
 def get_akd_from_bigpara_scrape(symbol):
     """
     Bigpara üzerinden AKD verisi scraping fallback.
+    URL: https://bigpara.hurriyet.com.tr/hisse/THYAO/aracilar/ (Note: This URL often 404s now)
     """
     try:
         url = f"https://bigpara.hurriyet.com.tr/hisse/{symbol.upper()}/aracilar/"
         headers = {'User-Agent': 'Mozilla/5.0'}
         resp = requests.get(url, headers=headers, timeout=8, verify=False)
+        if resp.status_code != 200:
+            return None
+            
         soup = BeautifulSoup(resp.text, 'lxml')
         
         buyers = []
@@ -162,23 +169,35 @@ async def get_real_akd_data(symbol):
     Eğer hepsi başarısız olursa, Playwright kullanan agressif Headless Scraper'a (browser_scraper.py) devredilir.
     """
     # 1. İş Yatırım API (en güvenilir) - Blocking calls run in thread
-    data = await asyncio.to_thread(get_akd_from_isyatirim, symbol)
-    if data and (data["buyers"] or data["sellers"]):
-        return data
-    
+    try:
+        print(f"DEBUG: Trying İş Yatırım API for {symbol}")
+        data = await asyncio.to_thread(get_akd_from_isyatirim, symbol)
+        if data and (data["buyers"] or data["sellers"]):
+            return data
+    except Exception as e:
+        print(f"DEBUG: İş Yatırım API error: {e}")
+
     # 2. Bigpara scraping fallback
-    data = await asyncio.to_thread(get_akd_from_bigpara_scrape, symbol)
-    if data and (data["buyers"] or data["sellers"]):
-        return data
+    try:
+        print(f"DEBUG: Trying Bigpara Scrape for {symbol}")
+        data = await asyncio.to_thread(get_akd_from_bigpara_scrape, symbol)
+        if data and (data["buyers"] or data["sellers"]):
+            return data
+    except Exception as e:
+        print(f"DEBUG: Bigpara Scrape error: {e}")
         
     # 3. Son çare: Agresif Başsız Tarayıcı Kazıması (Browser Scraper)
     try:
-        from api.browser_scraper import scrape_master
+        print(f"DEBUG: Falling back to Headless Scraper for {symbol}...")
+        from .browser_scraper import scrape_master
         headless_data = await scrape_master(symbol)
         if headless_data and (headless_data.get("buyers") or headless_data.get("status") != "Hata (Veri Bulunamadı)"):
+            print(f"DEBUG: Headless Scraper SUCCESS for {symbol}")
             return headless_data
+        else:
+            print(f"DEBUG: Headless Scraper failed to find data for {symbol}")
     except Exception as e:
-        print("Headless Scrape Error:", e)
+        print(f"DEBUG: Headless Scrape Exception: {e}")
         pass
 
     # 4. Hiçbiri çalışmazsa: hata döndür
