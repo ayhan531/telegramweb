@@ -2,6 +2,9 @@
 
 # Start the Python Telegram Bot in the background with auto-restart
 # This handles the Conflict error during Render's Zero-Downtime deployment
+echo "Initializing database..."
+python3 init_db.py
+
 echo "Starting Telegram Bot in background loop..."
 (
   while true; do

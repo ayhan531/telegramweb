@@ -9,6 +9,7 @@ from api.real_akd_api import get_real_akd_data
 from utils.chart_generator import create_stock_chart
 import sqlite3
 import asyncio
+import pandas as pd
 
 # Load environment variables from root
 current_dir = os.path.dirname(os.path.abspath(__file__))
