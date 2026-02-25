@@ -8,4 +8,4 @@ plotly
 kaleido
 beautifulsoup4
 lxml
-gunicorn
+gunicornplaywright==1.41.2
