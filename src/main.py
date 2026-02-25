@@ -11,10 +11,14 @@ import sqlite3
 import asyncio
 import pandas as pd
 
-# Load environment variables from root
+# Load environment variables (from .env if it exists, otherwise use environment)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
-load_dotenv(os.path.join(root_dir, '.env'))
+env_path = os.path.join(root_dir, '.env')
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+else:
+    load_dotenv() # Fallback to standard environment variables
 
 # Logging setup
 logging.basicConfig(

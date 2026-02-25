@@ -33,4 +33,7 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
+    
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(base_dir, "..", "data")
     print("Database initialized at", os.path.abspath(os.path.join(data_dir, "database.sqlite")))
