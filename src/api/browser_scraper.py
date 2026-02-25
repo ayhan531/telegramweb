@@ -128,13 +128,16 @@ async def scrape_foreks_akd(symbol):
 
 async def scrape_isyatirim_akd_headless(symbol):
     """
-    İş Yatırım AKD sayfasını ziyaret ederek veriyi çekmeye çalışır.
+    İş Yatırım AKD verisini Playwright ile sayfayı render ederek çeker.
     """
     browser = await start_browser()
     context = await browser.new_context(
-        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+        user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        viewport={'width': 1280, 'height': 720}
     )
+    # Stealth scripts
     page = await context.new_page()
+    await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     
     result = {
         "symbol": symbol.upper(),
@@ -145,82 +148,90 @@ async def scrape_isyatirim_akd_headless(symbol):
     }
     
     try:
-        # 1. Önce asıl sayfaya gidelim ki session/cookie oluşsun
-        page_url = f"https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/araci-kurum-dagilimi.aspx"
-        await page.goto(page_url, wait_until='networkidle', timeout=20000)
-        
-        # 2. Şimdi veriyi çeken API'ye gidelim
+        print(f"DEBUG: [Headless] Visiting İş Yatırım for {symbol}...")
         today = datetime.now().strftime("%d-%m-%Y")
-        # Biraz geriden başlatalım ki bugün veri yoksa dünü/öncekini bulsun
         start_date = (datetime.now() - timedelta(days=5)).strftime("%d-%m-%Y")
+        api_url_part = "HisseAraciKurumDagilimi"
         
-        api_url = f"https://www.isyatirim.com.tr/_layouts/15/Isyatirim.Website/Common/Data.aspx/HisseAraciKurumDagilimi?hisse={symbol}&startdate={start_date}&enddate={today}"
+        main_url = "https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/araci-kurum-dagilimi.aspx"
         
-        await page.goto(api_url, wait_until='load', timeout=15000)
-        content = await page.inner_text('body')
+        # API yanıtını yakalamak için listener
+        captured_content = {"data": None}
+        async def catch_res(res):
+            if api_url_part in res.url and res.status == 200:
+                try: captured_content["data"] = await res.text()
+                except: pass
+        
+        page.on("response", catch_res)
+        
+        await page.goto(main_url, wait_until='domcontentloaded', timeout=30000)
+        await page.wait_for_timeout(2000)
+        
+        # Doğrudan API URL'sine git (session oluşmuş olmalı)
+        target_api_url = f"https://www.isyatirim.com.tr/_layouts/15/Isyatirim.Website/Common/Data.aspx/HisseAraciKurumDagilimi?hisse={symbol.upper()}&startdate={start_date}&enddate={today}"
+        print(f"DEBUG: [Headless] Attempting target API URL: {target_api_url}")
+        
+        await page.goto(target_api_url, wait_until='load', timeout=20000)
+        
+        # Eğer response listener yakalayamadıysa body'den oku
+        content = captured_content["data"] or await page.inner_text('body')
         
         if "value" in content:
             js_data = json.loads(content)
             if js_data.get("ok") and js_data.get("value"):
                 records = js_data["value"]
-                
-                # En güncel tarihi bul
-                all_dates = [r.get("AKD_TARIH") for r in records if r.get("AKD_TARIH")]
-                if not all_dates:
+                dates = [r.get("AKD_TARIH") for r in records if r.get("AKD_TARIH")]
+                if dates:
+                    latest = max(dates)
+                    filtered = [r for r in records if r.get("AKD_TARIH") == latest]
+                    
+                    buyers, sellers = [], []
+                    for r in filtered:
+                        k = r.get("AKD_ARACILIK_UYESI", "").strip()
+                        lot = r.get("NET_HACIM") or 0
+                        yon = r.get("AKD_YON", "")
+                        if not k: continue
+                        
+                        entry = {"kurum": k[:20], "lot": f"{int(abs(float(lot))):,}".replace(",", "."), "pay": abs(float(lot))}
+                        if yon == "A" or float(lot) > 0: buyers.append(entry)
+                        else: sellers.append(entry)
+                    
+                    result["buyers"] = sorted(buyers, key=lambda x: x["pay"], reverse=True)[:10]
+                    result["sellers"] = sorted(sellers, key=lambda x: x["pay"], reverse=True)[:10]
+                    result["date"] = latest
+                    result["status"] = "Gerçek (BIST/İşY)"
+                    result["source"] = "İş Yatırım (Canlı)"
+                    print(f"DEBUG: [Headless] SUCCESS for {symbol}")
                     return result
                     
-                latest_date = max(all_dates)
-                latest_records = [r for r in records if r.get("AKD_TARIH") == latest_date]
-                
-                buyers, sellers = [], []
-                for r in latest_records:
-                    k = r.get("AKD_ARACILIK_UYESI", "").strip()
-                    lot = r.get("NET_HACIM") or r.get("AKD_ALIS_NET_LOT") or 0
-                    yon = r.get("AKD_YON", "")
-                    
-                    if not k: continue
-                    
-                    entry = {
-                        "kurum": k[:20], 
-                        "lot": f"{int(abs(float(lot))):,}".replace(",", "."),
-                        "maliyet": "---", 
-                        "pay": abs(float(lot))
-                    }
-                    
-                    if yon == "A" or (float(lot) > 0):
-                        buyers.append(entry)
-                    elif yon == "S" or (float(lot) < 0):
-                        sellers.append(entry)
-                
-                result["buyers"] = sorted(buyers, key=lambda x: x["pay"], reverse=True)[:10]
-                result["sellers"] = sorted(sellers, key=lambda x: x["pay"], reverse=True)[:10]
-                result["date"] = latest_date
-                result["status"] = "Gerçek (Headless API)"
-                result["source"] = "İş Yatırım"
-                
+        print(f"DEBUG: [Headless] No data found in content for {symbol}")
     except Exception as e:
+        print(f"DEBUG: [Headless] Error: {e}")
         result["error"] = str(e)
     
+    await page.close()
     await context.close()
     return result
 
 async def scrape_master(symbol):
     """
-    En agresif fonksiyon. Bütün siteleri dener, gerçek veriyi bulana kadar.
-    Önce Is Yatırım bypass, olmazsa Foreks.com kazıması.
+    En agresif fonksiyon. Bütün siteleri dener.
     """
     # 1. İs Yatirim tarayıcı ile
     data = await scrape_isyatirim_akd_headless(symbol)
-    if data and (data["buyers"] or data["sellers"]):
+    if data and data.get("buyers"):
         return data
         
     # 2. Foreks network intercept ile
+    print(f"DEBUG: [Headless] Falling back to Foreks for {symbol}...")
     data = await scrape_foreks_akd(symbol)
     return data
 
 if __name__ == "__main__":
     import sys
     sym = sys.argv[1].upper() if len(sys.argv) > 1 else 'THYAO'
-    res = asyncio.run(scrape_master(sym))
-    print(json.dumps(res, ensure_ascii=False, indent=2))
-    asyncio.run(close_browser())
+    async def main():
+        res = await scrape_master(sym)
+        print(json.dumps(res, ensure_ascii=False, indent=2))
+        await close_browser()
+    asyncio.run(main())
