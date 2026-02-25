@@ -143,13 +143,15 @@ async def get_real_akd_data(symbol):
     Ana AKD fonksiyonu. Önce İş Yatırım API'sini dener, sonra Bigpara scraping.
     Eğer hepsi başarısız olursa, Playwright kullanan agressif Headless Scraper'a (browser_scraper.py) devredilir.
     """
-    # 1. İş Yatırım API (en güvenilir) - requests blocking olduğu için to_thread kullanılabilir ama şimdilik doğrudan
-    data = get_akd_from_isyatirim(symbol)
+    import asyncio
+    
+    # 1. İş Yatırım API (en güvenilir) - Blocking calls run in thread
+    data = await asyncio.to_thread(get_akd_from_isyatirim, symbol)
     if data and (data["buyers"] or data["sellers"]):
         return data
     
     # 2. Bigpara scraping fallback
-    data = get_akd_from_bigpara_scrape(symbol)
+    data = await asyncio.to_thread(get_akd_from_bigpara_scrape, symbol)
     if data and (data["buyers"] or data["sellers"]):
         return data
         
