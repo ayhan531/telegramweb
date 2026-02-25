@@ -1,6 +1,6 @@
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
 # Playwright tarayıcı nesnesi için global referanslar
@@ -128,8 +128,7 @@ async def scrape_foreks_akd(symbol):
 
 async def scrape_isyatirim_akd_headless(symbol):
     """
-    İş Yatırım API'si 401 Unauthorized verdiğinde, tarayıcı ile gidip cookie ve tokenları alarak 
-    veya sayfayı render ettirerek engeli aşmayı deneriz.
+    İş Yatırım AKD sayfasını ziyaret ederek veriyi çekmeye çalışır.
     """
     browser = await start_browser()
     context = await browser.new_context(
@@ -141,42 +140,63 @@ async def scrape_isyatirim_akd_headless(symbol):
         "symbol": symbol.upper(),
         "date": datetime.now().strftime("%d %b"),
         "buyers": [], "sellers": [], "total": [],
-        "source": "İş Yatırım (Headless API Bypass)",
+        "source": "İş Yatırım (Headless)",
         "status": "Hata (Veri Bulunamadı)"
     }
     
     try:
-        # Önce ana sayfaya gidip "Rıza" vb çerezleri alalım (Cloudflare vb atlatmak için)
-        await page.goto("https://www.isyatirim.com.tr", wait_until='domcontentloaded', timeout=10000)
+        # 1. Önce asıl sayfaya gidelim ki session/cookie oluşsun
+        page_url = f"https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/araci-kurum-dagilimi.aspx"
+        await page.goto(page_url, wait_until='networkidle', timeout=20000)
         
-        # Şimdi doğrudan o 401 veren API endpointine GET atalım, bu sefer browser bağlamında
+        # 2. Şimdi veriyi çeken API'ye gidelim
         today = datetime.now().strftime("%d-%m-%Y")
-        url = f"https://www.isyatirim.com.tr/_layouts/15/Isyatirim.Website/Common/Data.aspx/HisseAraciKurumDagilimi?hisse={symbol}&startdate={today}&enddate={today}"
+        # Biraz geriden başlatalım ki bugün veri yoksa dünü/öncekini bulsun
+        start_date = (datetime.now() - timedelta(days=5)).strftime("%d-%m-%Y")
         
-        await page.goto(url, wait_until='load', timeout=10000)
-        body = await page.inner_text('body')
+        api_url = f"https://www.isyatirim.com.tr/_layouts/15/Isyatirim.Website/Common/Data.aspx/HisseAraciKurumDagilimi?hisse={symbol}&startdate={start_date}&enddate={today}"
         
-        if "UNAUTHORIZED" not in body and "ok" in body and "value" in body:
-            data = json.loads(body)
-            if data.get("ok") and data.get("value"):
-                records = data["value"]
+        await page.goto(api_url, wait_until='load', timeout=15000)
+        content = await page.inner_text('body')
+        
+        if "value" in content:
+            js_data = json.loads(content)
+            if js_data.get("ok") and js_data.get("value"):
+                records = js_data["value"]
+                
+                # En güncel tarihi bul
+                all_dates = [r.get("AKD_TARIH") for r in records if r.get("AKD_TARIH")]
+                if not all_dates:
+                    return result
+                    
+                latest_date = max(all_dates)
+                latest_records = [r for r in records if r.get("AKD_TARIH") == latest_date]
+                
                 buyers, sellers = [], []
-                for r in records[:50]:
+                for r in latest_records:
                     k = r.get("AKD_ARACILIK_UYESI", "").strip()
-                    lot = r.get("NET_HACIM", 0)
+                    lot = r.get("NET_HACIM") or r.get("AKD_ALIS_NET_LOT") or 0
                     yon = r.get("AKD_YON", "")
-                    if not k:
-                        continue
-                    entry = {"kurum": k[:20], "lot": str(int(abs(float(lot)))), "maliyet": "---", "pay": 0}
-                    if yon == "A" or (lot and float(lot) > 0):
+                    
+                    if not k: continue
+                    
+                    entry = {
+                        "kurum": k[:20], 
+                        "lot": f"{int(abs(float(lot))):,}".replace(",", "."),
+                        "maliyet": "---", 
+                        "pay": abs(float(lot))
+                    }
+                    
+                    if yon == "A" or (float(lot) > 0):
                         buyers.append(entry)
-                    elif yon == "S" or (lot and float(lot) < 0):
+                    elif yon == "S" or (float(lot) < 0):
                         sellers.append(entry)
                 
-                result["buyers"] = sorted(buyers, key=lambda x: float(x["lot"]), reverse=True)[:10]
-                result["sellers"] = sorted(sellers, key=lambda x: float(x["lot"]), reverse=True)[:10]
-                result["source"] = "İş Yatırım (Headless API Bypass)"
-                result["status"] = "Gerçek (API Bypass)"
+                result["buyers"] = sorted(buyers, key=lambda x: x["pay"], reverse=True)[:10]
+                result["sellers"] = sorted(sellers, key=lambda x: x["pay"], reverse=True)[:10]
+                result["date"] = latest_date
+                result["status"] = "Gerçek (Headless API)"
+                result["source"] = "İş Yatırım"
                 
     except Exception as e:
         result["error"] = str(e)
