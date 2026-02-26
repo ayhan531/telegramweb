@@ -71,63 +71,69 @@ async def yardim(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(help_text, parse_mode='Markdown')
 
+RELAY_URL = "http://127.0.0.1:8765"
+
+async def call_relay(path: str):
+    """Userbot relay servisine HTTP isteği atar. (fotoğraf veya metin)"""
+    import aiohttp
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{RELAY_URL}{path}", timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status == 200:
+                    ct = resp.content_type
+                    if 'image' in ct:
+                        return {"type": "photo", "data": await resp.read()}
+                    else:
+                        j = await resp.json()
+                        return {"type": "text", "data": j.get("text", "")}
+                else:
+                    j = await resp.json()
+                    return {"type": "error", "data": j.get("error", "Bilinmeyen hata")}
+    except Exception as e:
+        return {"type": "error", "data": str(e)}
+
 async def derinlik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text(
-            "Kullanım: `/derinlik THYAO`",
-            parse_mode='Markdown'
-        )
+        await update.message.reply_text("Kullanım: `/derinlik THYAO`", parse_mode='Markdown')
         return
 
     symbol = context.args[0].upper()
+    msg = await update.message.reply_text(f"▶ `{symbol}` derinlik verisi getiriliyor...", parse_mode='Markdown')
 
-    # 1) Önbellek: Userbot'un indirdiği derinlik fotoğrafını dene
-    import time as time_mod
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../data/matriks')
-    photo_path = os.path.join(data_dir, f"{symbol}_derinlik.jpg")
-    text_path  = os.path.join(data_dir, f"{symbol}_derinlik.txt")
+    result = await call_relay(f"/derinlik/{symbol}")
 
-    if os.path.exists(photo_path):
-        age_min = int((time_mod.time() - os.path.getmtime(photo_path)) / 60)
-        caption = (
-            f"{symbol} — Derinlik (25 Kademe)\n"
-            f"© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır."
+    await msg.delete()
+
+    if result["type"] == "photo":
+        import io
+        caption = f"{symbol} — Derinlik (25 Kademe)\n© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır."
+        await update.message.reply_photo(
+            photo=io.BytesIO(result["data"]),
+            caption=caption
         )
-        with open(photo_path, 'rb') as f:
-            await update.message.reply_photo(photo=f, caption=caption)
-        return
-
-    if os.path.exists(text_path):
-        with open(text_path, encoding='utf-8') as f:
-            raw = f.read()
+    elif result["type"] == "text":
         await update.message.reply_text(
-            f"\u25b6 *{symbol} — Derinlik*\n\n`{raw[:3000]}`",
+            f"▶ *{symbol} — Derinlik*\n\n`{result['data'][:3000]}`",
             parse_mode='Markdown'
         )
-        return
-
-    # 2) Fallback: Anlık fiyat göster
-    data = get_unified_data(symbol)
-    if not data or "error" in data:
-        await update.message.reply_text(
-            f"Veri bulunamadı.\n_{symbol} için derinlik verisi henüz hazırlanıyor. Lütfen birkaç dakika bekleyin._",
-            parse_mode='Markdown'
-        )
-        return
-
-    text = (
-        f"\u25b6 *{symbol} — PİYASA*\n"
-        f"`{'\u2500'*30}`\n"
-        f"▪ *Fiyat:*   `{data['price']:.2f} ₺`\n"
-        f"▪ *Açılış:* `{data.get('open', '---')}`\n"
-        f"▪ *Yüksek:* `{data.get('high', '---')}`\n"
-        f"▪ *Düşük:*  `{data.get('low', '---')}`\n"
-        f"▪ *Hacim:*  `{data.get('volume', '---')}`\n"
-        f"`{'\u2500'*30}`\n"
-        f"❯ _25 kademeli emir defteri henüz hazırlanıyor..._\n"
-        f"❯ _© 2026 Analytical Data Terminal._"
-    )
-    await update.message.reply_text(text, parse_mode='Markdown')
+    else:
+        # Fallback: yerel veri
+        data = get_unified_data(symbol)
+        if data and "error" not in data:
+            text = (
+                f"▶ *{symbol} — PİYASA*\n"
+                f"`{'\u2500'*30}`\n"
+                f"▪ *Fiyat:*   `{data['price']:.2f} ₺`\n"
+                f"▪ *Açılış:* `{data.get('open','---')}`\n"
+                f"▪ *Yüksek:* `{data.get('high','---')}`\n"
+                f"▪ *Düşük:*  `{data.get('low','---')}`\n"
+                f"▪ *Hacim:*  `{data.get('volume','---')}`\n"
+                f"`{'\u2500'*30}`\n"
+                f"❯ _© 2026 Analytical Data Terminal._"
+            )
+            await update.message.reply_text(text, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(f"_{symbol} verisi alınamadı. Lütfen tekrar deneyin._", parse_mode='Markdown')
 
 async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -157,64 +163,49 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text(
-            "Kullanım: `/akd THYAO`",
-            parse_mode='Markdown'
-        )
+        await update.message.reply_text("Kullanım: `/akd THYAO`", parse_mode='Markdown')
         return
 
     symbol = context.args[0].upper()
-    import time as time_mod
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../data/matriks')
+    msg = await update.message.reply_text(f"▶ `{symbol}` AKD verisi getiriliyor...", parse_mode='Markdown')
 
-    # 1) Kaydedilmiş AKD fotoğrafı varsa gönder
-    photo_path = os.path.join(data_dir, f"{symbol}_akd_gunluk.jpg")
-    text_path  = os.path.join(data_dir, f"{symbol}_akd_gunluk.txt")
+    result = await call_relay(f"/akd/{symbol}")
 
-    if os.path.exists(photo_path):
-        age_min = int((time_mod.time() - os.path.getmtime(photo_path)) / 60)
+    await msg.delete()
+
+    if result["type"] == "photo":
+        import io
         caption = f"{symbol} — Aracı Kurum Dağılımı\n© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır."
-        with open(photo_path, 'rb') as f:
-            await update.message.reply_photo(photo=f, caption=caption)
-        return
-
-    if os.path.exists(text_path):
-        with open(text_path, encoding='utf-8') as f:
-            raw = f.read()
+        await update.message.reply_photo(
+            photo=io.BytesIO(result["data"]),
+            caption=caption
+        )
+    elif result["type"] == "text":
         await update.message.reply_text(
-            f"▶ *{symbol} — AKD*\n\n`{raw[:3000]}`",
+            f"▶ *{symbol} — AKD*\n\n`{result['data'][:3000]}`",
             parse_mode='Markdown'
         )
-        return
-
-    # 2) Fallback: API üzerinden çek
-    data = await get_real_akd_data(symbol)
-    if not data or not data.get('buyers'):
-        await update.message.reply_text(
-            f"_{symbol} için AKD verisi henüz hazırlanıyor. Lütfen kısa süre bekleyin._",
-            parse_mode='Markdown'
-        )
-        return
-
-    text = f"▶ *{symbol} — ARACI KURUM DAĞILIMI*\n"
-    text += f"`{'\u2500'*36}`\n"
-    text += f"`{'KURUM':<18} {'ORAN':>6} {'NET LOT':>12}`\n"
-    text += f"`{'\u2500'*36}`\n"
-
-    for b in data.get('buyers', []):
-        lot = str(b.get('lot', '---'))
-        oran = str(b.get('oran', '---'))
-        text += f"`{b['kurum'][:18]:<18} {oran:>6} {lot:>12}`\n"
-
-    text += f"`{'\u2500'*36}`\n"
-    for s in data.get('sellers', []):
-        lot = str(s.get('lot', '---'))
-        oran = str(s.get('oran', '---'))
-        text += f"`{s['kurum'][:18]:<18} {oran:>6} {lot:>12}`\n"
-
-    text += f"`{'\u2500'*36}`\n"
-    text += f"❯ _© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır._"
-    await update.message.reply_text(text, parse_mode='Markdown')
+    else:
+        # Fallback: yerel API
+        data = await get_real_akd_data(symbol)
+        if not data or not data.get('buyers'):
+            await update.message.reply_text(
+                f"_{symbol} AKD verisi alınamadı. Tekrar deneyin._",
+                parse_mode='Markdown'
+            )
+            return
+        text = f"▶ *{symbol} — ARACI KURUM DAĞILIMI*\n"
+        text += f"`{'\u2500'*36}`\n"
+        text += f"`{'KURUM':<18} {'ORAN':>6} {'NET LOT':>12}`\n"
+        text += f"`{'\u2500'*36}`\n"
+        for b in data.get('buyers', []):
+            text += f"`{b['kurum'][:18]:<18} {str(b.get('oran','')):>6} {str(b.get('lot','')):>12}`\n"
+        text += f"`{'\u2500'*36}`\n"
+        for s in data.get('sellers', []):
+            text += f"`{s['kurum'][:18]:<18} {str(s.get('oran','')):>6} {str(s.get('lot','')):>12}`\n"
+        text += f"`{'\u2500'*36}`\n"
+        text += f"❯ _© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır._"
+        await update.message.reply_text(text, parse_mode='Markdown')
 
 # --- Alarm İşlemleri ---
 def get_db_connection():
