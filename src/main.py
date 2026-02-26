@@ -28,17 +28,18 @@ logging.basicConfig(
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
-        "📊 FINANS & ANALIZ TERMINALI\n"
-        "-----------------------------------\n"
-        "BIST, Kripto ve Emtia piyasalarını anlık takip edebileceğiniz sisteme hoş geldiniz.\n\n"
-        "Aşağıdaki butona tıklayarak derinlik, analiz, takas ve grafiklere (Foreks/Matriks) anlık olarak erişebilirsiniz.\n\n"
-        "KOMUTLAR\n"
-        "/derinlik [SEMBOL] - Piyasa verileri (Örn: THYAO, BTCUSDT)\n"
-        "/grafik [SEMBOL]   - Teknik analiz grafiği\n"
-        "/akd [SEMBOL]      - Aracı Kurum Dağılımı (BIST)\n"
-        "/alarm [SEMBOL] [FIYAT] - Fiyat alarmı kur (Örn: /alarm THYAO 320)\n"
-        "/alarmlar         - Aktif alarmları listele\n"
-        "/yardim           - Detaylı dokümantasyon"
+        "❖ *DERINLIK & ANALIZ TERMINALI PRO*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "BIST, Kripto ve Emtia piyasalarında *gerçek zamanlı* ve *derinlemesine* analiz sistemine hoş geldiniz.\n\n"
+        "Aşağıdaki butona tıklayarak derinlik, analiz, takas ve grafiklere *(Pro Veri Terminali)* kesintisiz olarak erişebilirsiniz.\n\n"
+        "▰ *HIZLI KOMUTLAR*\n"
+        "▪ `/derinlik [SEMBOL]` - Anlık Piyasa Özeti (Örn: THYAO)\n"
+        "▪ `/grafik [SEMBOL]`   - YZ Destekli Teknik Analiz\n"
+        "▪ `/akd [SEMBOL]`      - Aracı Kurum Dağılımı (Matriks)\n"
+        "▪ `/alarm [SEMBOL] [FİYAT]` - Algoritmik Fiyat Alarmı\n"
+        "▪ `/alarmlar`          - Aktif Alarmları Yönet\n"
+        "▪ `/yardim`            - Sistem Dokümantasyonu\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
     
     # Kullanicinin Render'da yanlislikla "WEBAPP_URL" degiskenini eski .pages.dev olarak 
@@ -46,7 +47,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Render'in kendi verdigi RENDER_EXTERNAL_URL'yi veya sabit degeri kullaniyoruz:
     webapp_url = os.getenv("RENDER_EXTERNAL_URL", "https://telegramweb-gd62.onrender.com")
     keyboard = [
-        [InlineKeyboardButton("📊 TERMINALI AC", web_app=WebAppInfo(url=webapp_url))]
+        [InlineKeyboardButton("▰ TERMINALI AC", web_app=WebAppInfo(url=webapp_url))]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -57,17 +58,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def yardim(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
-        "KULLANIM REHBERI\n"
-        "-----------------------------------\n"
-        "Veri sorgulamak için sembol kodunu komutla birlikte giriniz.\n\n"
-        "ÖRNEKLER\n"
-        "/derinlik THYAO (BIST)\n"
-        "/derinlik BTCUSDT (Kripto)\n"
-        "/derinlik XAUUSD (Altın Ons)\n"
-        "/grafik EREGL\n\n"
-        "NOT: Veriler Foreks (Bigpara) üzerinden anlık alınmaktadır."
+        "❖ *PRO KULLANIM REHBERI*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Sistemimiz Matriks Data ve Foreks altyapıları ile güçlendirilmiştir. Veri sorgulamak için sembol kodunu komutla birlikte girmeniz yeterlidir.\n\n"
+        "▰ *ÖRNEK KULLANIMLAR*\n"
+        "• Borsa İstanbul: `/derinlik THYAO`\n"
+        "• Kripto Para: `/derinlik BTCUSDT`\n"
+        "• Emtia / Altın: `/derinlik XAUUSD`\n"
+        "• Teknik Analiz: `/grafik EREGL`\n"
+        "• AKD Dökümü: `/akd ASTOR`\n\n"
+        "❯ *İpucu:* Tüm özellikleri tam ekranda ve en yüksek hızda deneyimlemek için 'TERMINALI AC' butonunu kullanın."
     )
-    await update.message.reply_text(f"```\n{help_text}\n```", parse_mode='MarkdownV2')
+    await update.message.reply_text(help_text, parse_mode='Markdown')
 
 async def derinlik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -83,18 +85,19 @@ async def derinlik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     # Profesyonel tablo görünümü
     text = (
-        f"PIYASA VERISI: {symbol}\n"
-        f"{'-' * 30}\n"
-        f"{'Sirket:':<15} {data['name']}\n"
-        f"{'Fiyat:':<15} {data['price']:.2f} TRY\n"
-        f"{'Acilis:':<15} {data['open']}\n"
-        f"{'Yuksek:':<15} {data['high']}\n"
-        f"{'Dusuk:':<15} {data['low']}\n"
-        f"{'Hacim:':<15} {data['volume']}\n"
-        f"{'-' * 30}\n"
-        f"Kaynak: {data.get('source', 'Borsa')}"
+        f"❖ *PİYASA VERISI: {symbol}*\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"◼ *Şirket:* `{data['name']}`\n"
+        f"◼ *Fiyat:*  `{data['price']:.2f} ₺`\n\n"
+        f"▰ *Günlük Özet*\n"
+        f"• Açılış: `{data['open']}`\n"
+        f"• Yüksek: `{data['high']}`\n"
+        f"• Düşük:  `{data['low']}`\n"
+        f"• Hacim:  `{data['volume']}`\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"❯ _Kaynak: {data.get('source', 'PRO Terminal Eşzamanlı Veri')}_"
     )
-    await update.message.reply_text(f"```\n{text}\n```", parse_mode='MarkdownV2')
+    await update.message.reply_text(text, parse_mode='Markdown')
 
 async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -134,21 +137,24 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"HATA: {symbol} icin gercek AKD verisi su an alinamiyor.")
         return
         
-    # Profesyonel tablo görünümü
-    text = f"GERCEK AKD VERISI: {symbol}\n"
-    text += f"{'-' * 35}\n"
-    text += f"{'ALICILAR':<20} {'LOT':>14}\n"
+    # Profesyonel AKD görünümü
+    # Her kurumun ismini 18 karaktere sabitleyip daha düzgün görünmesini sağlıyoruz.
+    text = f"▰ *MATRİKS CANLI VERİ TÜRÜ: AKD*\n"
+    text += f"❖ *Sembol:* `{symbol}`\n"
+    text += f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    text += f"▲ *ALANLAR*\n"
     for b in data['buyers']:
-        text += f"{b['kurum'][:19]:<20} {b['lot']:>14}\n"
+        text += f"`{b['kurum'][:18]:<18} | {b['lot']:>12}`\n"
     
-    text += f"\n{'SATICILAR':<20} {'LOT':>14}\n"
+    text += f"\n▼ *SATICILAR*\n"
     for s in data['sellers']:
-        text += f"{s['kurum'][:19]:<20} {s['lot']:>14}\n"
+        text += f"`{s['kurum'][:18]:<18} | {s['lot']:>12}`\n"
     
-    text += f"{'-' * 35}\n"
-    text += "Kaynak: Matriks/Foreks Analizi (Anlik)"
+    text += f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    text += f"❯ _Veri Kaynağı: Matriks DDE (Anlık)_\n"
+    text += f"❖ _Kullanıcı Seviyesi: PRO_"
     
-    await update.message.reply_text(f"```\n{text}\n```", parse_mode='MarkdownV2')
+    await update.message.reply_text(text, parse_mode='Markdown')
 
 # --- Alarm İşlemleri ---
 def get_db_connection():
@@ -186,7 +192,7 @@ async def alarm_kur(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
     conn.close()
 
-    await update.message.reply_text(f"✅ *ALARM KURULDU*\n{symbol} fiyatı {target_price} {cond_text} haber vereceğim.", parse_mode='Markdown')
+    await update.message.reply_text(f"✓ *ALARM KURULDU*\n{symbol} fiyatı {target_price} {cond_text} haber vereceğim.", parse_mode='Markdown')
 
 async def alarmlar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
@@ -198,9 +204,9 @@ async def alarmlar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Aktif alarmınız bulunmuyor.")
         return
 
-    text = "🔔 *AKTİF ALARMLARINIZ*\n\n"
+    text = "▰ *AKTİF ALARMLARINIZ*\n\n"
     for r in rows:
-        cond = "↑" if r['condition'] == 'ABOVE' else "↓"
+        cond = "▲" if r['condition'] == 'ABOVE' else "▼"
         text += f"ID: `{r['id']}` | {r['symbol']} | {cond} {r['target_price']}\n"
     
     text += "\nAlarm silmek için: `/alarmsil [ID]`"
@@ -221,7 +227,7 @@ async def alarm_sil(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.close()
 
     if deleted:
-        await update.message.reply_text(f"✅ Alarm `{alarm_id}` başarıyla silindi.", parse_mode='Markdown')
+        await update.message.reply_text(f"✓ Alarm `{alarm_id}` başarıyla silindi.", parse_mode='Markdown')
     else:
         await update.message.reply_text("HATA: Alarm bulunamadı veya size ait değil.")
 
@@ -253,7 +259,7 @@ async def alarm_check_loop(application):
                 elif cond == 'BELOW' and curr <= target: triggered = True
                 
                 if triggered:
-                    text = f"🚨 *FİYAT ALARMI TETİKLENDİ!*\n\n*{s}* şu an *{curr}* seviyesinde.\n(Hedef: {target})"
+                    text = f"[!] *FİYAT ALARMI TETİKLENDİ!*\n\n*{s}* şu an *{curr}* seviyesinde.\n(Hedef: {target})"
                     await application.bot.send_message(chat_id=a['user_id'], text=text, parse_mode='Markdown')
                     conn.execute("UPDATE alarms SET is_active = 0 WHERE id = ?", (a['id'],))
                     conn.commit()

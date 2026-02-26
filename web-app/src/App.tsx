@@ -186,8 +186,9 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
 
         <div className="flex justify-between items-end mb-4">
           <div>
-            <h2 className="text-[22px] font-bold tracking-tight">
-              {user?.first_name ? `Hoş geldin ${user.first_name}!` : 'Hoş geldiniz!'} {new Date().getDay() === 0 ? '☁️' : '🚀'}
+            <h2 className="text-[22px] font-bold tracking-tight text-white flex items-center gap-2">
+              {user?.first_name ? `Hoş geldin ${user.first_name}` : 'Hoş geldiniz'}
+              {new Date().getDay() === 0 ? <Briefcase className="w-5 h-5 text-zinc-500" /> : <Activity className="w-5 h-5 text-[#30d158]" />}
             </h2>
             <div className="text-zinc-500 text-[11px] font-bold uppercase tracking-wider mt-1">{bultenData?.date || 'PIYASA ÖZETİ'}</div>
           </div>
@@ -217,18 +218,18 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
         <div className="space-y-2">
           <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1">En Çok Artanlar</div>
           {bultenData?.gainers?.slice(0, 3).map((g: any, i: number) => (
-            <div key={i} onClick={() => onSearch(g.symbol)} className="bg-[#111114] border border-white/5 rounded-xl p-3 flex justify-between items-center active:bg-white/5">
-              <span className="font-bold text-sm">{g.symbol}</span>
-              <span className="text-[#00ff88] text-[11px] font-bold">{g.change}</span>
+            <div key={i} onClick={() => onSearch(g.symbol)} className="premium-card p-3 flex justify-between items-center active:bg-white/5 transition-transform active:scale-[0.98]">
+              <span className="font-bold text-sm text-white">{g.symbol}</span>
+              <span className="text-[#10b981] text-[11px] font-bold">{g.change}</span>
             </div>
           ))}
         </div>
         <div className="space-y-2">
           <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1">En Çok Düşenler</div>
           {bultenData?.losers?.slice(0, 3).map((l: any, i: number) => (
-            <div key={i} onClick={() => onSearch(l.symbol)} className="bg-[#111114] border border-white/5 rounded-xl p-3 flex justify-between items-center active:bg-white/5">
-              <span className="font-bold text-sm">{l.symbol}</span>
-              <span className="text-[#ff3b30] text-[11px] font-bold">{l.change}</span>
+            <div key={i} onClick={() => onSearch(l.symbol)} className="premium-card p-3 flex justify-between items-center active:bg-white/5 transition-transform active:scale-[0.98]">
+              <span className="font-bold text-sm text-white">{l.symbol}</span>
+              <span className="text-[#ef4444] text-[11px] font-bold">{l.change}</span>
             </div>
           ))}
         </div>
@@ -276,10 +277,10 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
 };
 
 const QuickStat = ({ title, value, change, color = 'text-white' }: any) => (
-  <div className="min-w-[130px] bg-[#111114] border border-white/5 p-3 rounded-2xl">
-    <div className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1.5">{title}</div>
-    <div className={`text-[15px] font-bold truncate ${color}`}>{value || '---'}</div>
-    <div className={`text-[10px] font-bold mt-0.5 ${change?.includes('+') ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>
+  <div className="min-w-[130px] premium-card p-3">
+    <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">{title}</div>
+    <div className={`text-[16px] font-bold truncate ${color}`}>{value || '---'}</div>
+    <div className={`text-[11px] font-bold mt-0.5 ${change?.includes('+') ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>
       {change || '0.00%'}
     </div>
   </div>
@@ -299,7 +300,7 @@ const FavoriteCard = ({ symbol, onSelect, onRemove }: any) => {
   }, [symbol]);
 
   return (
-    <div onClick={() => onSelect(symbol)} className="bg-[#111114] border border-white/10 rounded-2xl p-4 active:scale-[0.98] transition-all relative group">
+    <div onClick={() => onSelect(symbol)} className="premium-card p-4 active:scale-[0.98] transition-all relative group cursor-pointer">
       <div className="flex justify-between items-start mb-2">
         <span className="font-bold text-[15px]">{symbol}</span>
         <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="text-[#ff9d00]">
@@ -365,17 +366,17 @@ const Kurumsal = ({ akdData }: { akdData: any }) => {
       <div className="flex gap-2 p-4">
         <div className="relative flex-[1.2]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
-          <input type="text" placeholder="Kurum ara..." className="w-full bg-[#111114] border border-white/5 rounded-xl py-2.5 pl-9 pr-2 text-[13px] focus:outline-none text-white" />
+          <input type="text" placeholder="Kurum ara..." className="w-full premium-card !bg-opacity-50 py-2.5 pl-9 pr-2 text-[13px] focus:outline-none text-white transition-all focus:border-white/20" />
         </div>
-        <div className="relative flex-1 bg-[#111114] border border-white/5 rounded-xl flex items-center px-3">
+        <div className="relative flex-1 premium-card flex items-center px-3 cursor-pointer">
           <span className="text-[13px] font-medium text-white">20 Şubat</span>
           <ChevronDown className="w-4 h-4 ml-auto text-zinc-500" />
         </div>
-        <div className="relative flex-[0.9] bg-[#111114] border border-white/5 rounded-xl flex items-center px-3">
+        <div className="relative flex-[0.9] premium-card flex items-center px-3 cursor-pointer">
           <span className="text-[13px] font-medium text-white">Saat Seç</span>
           <ChevronDown className="w-4 h-4 ml-auto text-zinc-500" />
         </div>
-        <button className="w-10 flex-shrink-0 bg-[#111114] border border-white/5 rounded-xl flex items-center justify-center">
+        <button className="w-10 flex-shrink-0 premium-card flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
           <RefreshCw className="w-4 h-4 text-zinc-400" />
         </button>
       </div>
@@ -452,7 +453,7 @@ const Bulten = ({ data, user }: { data: any, user: any }) => (
       </p>
 
       <p className="text-white text-base mb-6 font-medium tracking-tight">
-        Merhaba <span className="font-extrabold text-[#00ff88]">{user?.first_name || 'Cem'}</span>, iyi hafta sonları! 🎉
+        Merhaba <span className="font-extrabold text-[#38bdf8]">{user?.first_name || 'Yatırımcı'}</span>, piyasa özetiniz hazır.
       </p>
 
       <div className="grid grid-cols-1 gap-4 mb-6">
@@ -468,9 +469,9 @@ const Bulten = ({ data, user }: { data: any, user: any }) => (
   </div>
 );
 
-const MarketSection = ({ title, data, color }: any) => (
-  <div className="border border-white/5 rounded-xl bg-gradient-to-b from-white/[0.02] to-transparent overflow-hidden">
-    <div className="px-4 py-3 font-bold border-b border-white/5 text-[15px]" style={{ color }}>{title}</div>
+const MarketSection = ({ title, data }: any) => (
+  <div className="premium-card overflow-hidden">
+    <div className="px-4 py-3 font-bold border-b border-white/5 text-[15px] premium-text-gradient">{title}</div>
     <div className="flex flex-col">
       {(data && data.length > 0) ? data.map((item: any, i: number) => (
         <div key={i} className="flex justify-between items-center px-4 py-3 border-b border-white/5 last:border-0">
@@ -525,13 +526,13 @@ const Diger = ({ bultenData }: { bultenData: any }) => {
   );
 };
 
-const DigerMenuItem = ({ icon: Icon, title, subtitle, color, bg, onClick }: any) => (
-  <div className="flex items-center gap-4 bg-[#0a0a0c] border border-white/5 p-4 rounded-2xl active:bg-white/5 transition-colors" onClick={onClick}>
-    <div className={`w-12 h-12 rounded-2xl ${bg} flex items-center justify-center`}>
-      <Icon className={`w-6 h-6 ${color}`} />
+const DigerMenuItem = ({ icon: Icon, title, subtitle, onClick }: any) => (
+  <div className="flex items-center gap-4 premium-card p-4 active:bg-white/5 transition-colors cursor-pointer" onClick={onClick}>
+    <div className={`w-12 h-12 rounded-xl border border-white/5 bg-black/40 flex items-center justify-center`}>
+      <Icon className={`w-6 h-6 text-white opacity-90`} />
     </div>
     <div className="flex-1">
-      <div className="font-bold text-[16px] text-white">{title}</div>
+      <div className="font-bold text-[16px] text-white premium-text-gradient">{title}</div>
       <div className="text-sm text-zinc-500 mt-0.5">{subtitle}</div>
     </div>
     <ChevronDown className="w-5 h-5 text-zinc-600 -rotate-90" />
@@ -661,13 +662,13 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
       ) : (
         <div className="p-4 space-y-4 pb-20">
           {stock && (
-            <div className="bg-[#111114] rounded-2xl p-5 border border-white/5">
+            <div className="premium-card p-5">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-3xl font-black tracking-tight text-white">{symbol.toUpperCase()}</h1>
+                    <h1 className="text-3xl font-black tracking-tight premium-text-gradient">{symbol.toUpperCase()}</h1>
                     <button onClick={() => onToggleFavorite(symbol)}>
-                      <Star className={`w-6 h-6 ${favorites.includes(symbol.toUpperCase()) ? 'fill-[#ff9d00] text-[#ff9d00]' : 'text-zinc-600'}`} />
+                      <Star className={`w-6 h-6 ${favorites.includes(symbol.toUpperCase()) ? 'fill-[#38bdf8] text-[#38bdf8]' : 'text-zinc-600'}`} />
                     </button>
                   </div>
                   <p className="text-xs text-zinc-500 uppercase font-bold tracking-widest mt-1">{stock.name}</p>
@@ -702,10 +703,10 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
           </div>
 
           {tab === 'derinlik' && (
-            <div className="bg-[#111114] rounded-2xl border border-white/5 overflow-hidden">
+            <div className="premium-card overflow-hidden">
               <div className="grid grid-cols-2 divide-x divide-white/5">
                 <div className="p-4">
-                  <p className="text-[11px] text-[#00ff88] font-black mb-3 flex items-center gap-1">🟢 ALIŞ <span className="text-zinc-600 font-normal ml-auto">Lot</span></p>
+                  <p className="text-[11px] text-[#10b981] font-black mb-3 flex items-center gap-1"><ArrowDownRight className="w-3.5 h-3.5" /> ALIŞ <span className="text-zinc-600 font-normal ml-auto">Lot</span></p>
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="flex justify-between items-center mb-2.5">
                       <span className="text-[13px] font-mono font-medium text-zinc-100">{(285.5 - i * 0.05).toFixed(2)}</span>
@@ -714,7 +715,7 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
                   ))}
                 </div>
                 <div className="p-4">
-                  <p className="text-[11px] text-[#ff3b30] font-black mb-3 flex items-center gap-1 flex-row-reverse">🔴 SATIŞ <span className="text-zinc-600 font-normal mr-auto">Lot</span></p>
+                  <p className="text-[11px] text-[#ef4444] font-black mb-3 flex items-center gap-1 flex-row-reverse"><ArrowUpRight className="w-3.5 h-3.5" /> SATIŞ <span className="text-zinc-600 font-normal mr-auto">Lot</span></p>
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="flex justify-between items-center mb-2.5 flex-row-reverse">
                       <span className="text-[13px] font-mono font-medium text-zinc-100">{(285.55 + i * 0.05).toFixed(2)}</span>
@@ -730,8 +731,8 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
 
           {tab === 'teknik' && (
             <div className="space-y-4">
-              <div className="bg-[#111114] rounded-2xl p-5 border border-white/5">
-                <h3 className="text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-4">Teknik Göstergeler (Real-time)</h3>
+              <div className="premium-card p-5">
+                <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-4">Teknik Göstergeler (Real-time)</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-black/40 p-3 rounded-xl border border-white/5 text-center">
                     <div className="text-[10px] text-zinc-500 font-bold uppercase mb-1">RSI (14)</div>
@@ -771,8 +772,8 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
                 </div>
               )}
 
-              <div className="bg-[#111114] rounded-2xl p-5 border border-white/5">
-                <h3 className="text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-4">Son KAP Bildirimleri</h3>
+              <div className="premium-card p-5">
+                <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-4">Son KAP Bildirimleri</h3>
                 <div className="space-y-4">
                   {scan?.kap_news?.map((news: any, i: number) => (
                     <div key={i} className="flex gap-3">
