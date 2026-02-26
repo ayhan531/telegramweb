@@ -12,11 +12,16 @@ Dosya kaydetmez, periyodik tarama yapmaz. Tamamen anlık proxy.
 
 import asyncio
 import io
-import time
 import sys
+import os
+import time
 from aiohttp import web
 from telethon import TelegramClient
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
+
+# Fotoğraf markalam modülünü içe aktar
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from image_brander import brand_image
 
 API_ID   = 37031232
 API_HASH = "518b15f17950300182c1edf6921e7c92"
@@ -59,7 +64,7 @@ async def relay_query(command: str) -> dict:
                         buf = io.BytesIO()
                         await client.download_media(msg, file=buf)
                         buf.seek(0)
-                        return {"type": "photo", "data": buf.read()}
+                        return {"type": "photo", "data": buf.read(), "caption": msg.text or ""}
                     # Metin cevabı
                     if msg.text and len(msg.text) > 10:
                         return {"type": "text", "data": msg.text}
@@ -83,7 +88,9 @@ async def handle_akd(request: web.Request) -> web.Response:
     result = await relay_query(f"/akd {symbol}")
 
     if result["type"] == "photo":
-        return web.Response(body=result["data"], content_type="image/jpeg")
+        # Kendi markamızı ekle
+        branded = brand_image(result["data"], symbol=symbol, data_type="Aracı Kurum Dağılımı")
+        return web.Response(body=branded, content_type="image/jpeg")
     elif result["type"] == "text":
         return web.json_response({"text": result["data"]})
     else:
@@ -99,7 +106,9 @@ async def handle_derinlik(request: web.Request) -> web.Response:
     result = await relay_query(f"/derinlik {symbol}")
 
     if result["type"] == "photo":
-        return web.Response(body=result["data"], content_type="image/jpeg")
+        # Kendi markamızı ekle
+        branded = brand_image(result["data"], symbol=symbol, data_type="Derinlik  •  25 Kademe")
+        return web.Response(body=branded, content_type="image/jpeg")
     elif result["type"] == "text":
         return web.json_response({"text": result["data"]})
     else:
