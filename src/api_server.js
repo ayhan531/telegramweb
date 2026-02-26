@@ -174,6 +174,35 @@ app.get('/api/scan/:category', async (req, res) => {
     }
 });
 
+const MATRIKS_DATA_DIR = path.join(__dirname, '../data/matriks');
+if (!fs.existsSync(MATRIKS_DATA_DIR)) {
+    fs.mkdirSync(MATRIKS_DATA_DIR, { recursive: true });
+}
+
+// Matriks Köprü (Bridge) Veri Alma Endpoint'i
+app.post('/api/push-matriks-akd/:symbol', (req, res) => {
+    const { symbol } = req.params;
+    const { token, data } = req.body;
+
+    // Basit bir güvenlik kontrolü (Token'ı .env'den alır)
+    if (token !== process.env.MATRIKS_BRIDGE_TOKEN) {
+        return res.status(403).json({ error: 'Bridge Token Geçersiz' });
+    }
+
+    try {
+        const filePath = path.join(MATRIKS_DATA_DIR, `${symbol.toUpperCase()}_akd.json`);
+        fs.writeFileSync(filePath, JSON.stringify({
+            timestamp: Date.now(),
+            data: data
+        }));
+        console.log(`[MATRIKS] ${symbol} AKD verisi güncellendi.`);
+        res.json({ success: true, message: 'Veri başarıyla kaydedildi' });
+    } catch (err) {
+        console.error('Matriks Data Yazma Hatası:', err);
+        res.status(500).json({ error: 'Dosya yazılamadı' });
+    }
+});
+
 // --- Favoriler Endpoint'leri ---
 
 app.get('/api/favorites/:userId', (req, res) => {

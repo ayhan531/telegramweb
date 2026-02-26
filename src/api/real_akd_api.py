@@ -168,11 +168,25 @@ async def get_real_akd_data(symbol):
     Ana AKD fonksiyonu. Önce İş Yatırım API'sini dener, sonra Bigpara scraping.
     Eğer hepsi başarısız olursa, Playwright kullanan agressif Headless Scraper'a (browser_scraper.py) devredilir.
     """
+    # 0. Matriks Köprü (Bridge) Verisini Kontrol Et (En yüksek öncelik)
+    try:
+        import os
+        bridge_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'matriks', f"{symbol.upper()}_akd.json")
+        if os.path.exists(bridge_path):
+            with open(bridge_path, 'r', encoding='utf-8') as f:
+                cache_file = json.load(f)
+                # Geçerlilik kontrolü (opsiyonel, 12 saat)
+                if (datetime.now().timestamp() * 1000 - cache_file.get("timestamp", 0)) < (12 * 60 * 60 * 1000):
+                    print(f"DEBUG: {symbol} için Canlı Matriks verisi bulundu.")
+                    return cache_file["data"]
+    except Exception as e:
+        print(f"DEBUG: Matriks Bridge Data error: {e}")
+
     # 1. İş Yatırım API (en güvenilir) - Blocking calls run in thread
     try:
         print(f"DEBUG: Trying İş Yatırım API for {symbol}")
         data = await asyncio.to_thread(get_akd_from_isyatirim, symbol)
-        if data and (data["buyers"] or data["sellers"]):
+        if data and (data.get("buyers") or data.get("sellers")):
             return data
     except Exception as e:
         print(f"DEBUG: İş Yatırım API error: {e}")
