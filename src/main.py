@@ -60,7 +60,7 @@ async def yardim(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
         "❖ *PRO KULLANIM REHBERI*\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Sistemimiz Matriks Data ve Foreks altyapıları ile güçlendirilmiştir. Veri sorgulamak için sembol kodunu komutla birlikte girmeniz yeterlidir.\n\n"
+        "Gelişmiş veri terminali üzerinden sistemimize erişmektesiniz. Veri sorgulamak için sembol kodunu komutla birlikte girmeniz yeterlidir.\n\n"
         "▰ *ÖRNEK KULLANIMLAR*\n"
         "• Borsa İstanbul: `/derinlik THYAO`\n"
         "• Kripto Para: `/derinlik BTCUSDT`\n"
@@ -95,7 +95,7 @@ async def derinlik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• Düşük:  `{data['low']}`\n"
         f"• Hacim:  `{data['volume']}`\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"❯ _Kaynak: {data.get('source', 'PRO Terminal Eşzamanlı Veri')}_"
+        f"❯ _© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır._"
     )
     await update.message.reply_text(text, parse_mode='Markdown')
 
@@ -119,7 +119,7 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     chart_path = f"{symbol}_chart.png"
     if create_stock_chart(hist, symbol, chart_path):
-        caption = f"TEKNIK ANALIZ: {symbol}\nKaynak: Foreks (Bigpara)"
+        caption = f"TEKNIK ANALIZ: {symbol}\n© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır."
         await update.message.reply_photo(photo=open(chart_path, 'rb'), caption=f"```\n{caption}\n```", parse_mode='MarkdownV2')
         os.remove(chart_path)
     else:
@@ -151,7 +151,7 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += f"`{s['kurum'][:18]:<18} | {s['lot']:>12}`\n"
     
     text += f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    text += f"❯ _Veri Kaynağı: Matriks DDE (Anlık)_\n"
+    text += f"❯ _© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır._\n"
     text += f"❖ _Kullanıcı Seviyesi: PRO_"
     
     await update.message.reply_text(text, parse_mode='Markdown')

@@ -173,13 +173,13 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
               value={val}
               onChange={e => setVal(e.target.value)}
               onKeyDown={handleSearchKeyPress}
-              className="w-full bg-[#111114] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-[15px] focus:outline-none focus:border-white/20 text-white placeholder:text-zinc-600"
+              className="w-full bg-[#141417] border border-white/5 rounded-2xl py-3 pl-10 pr-4 text-[15px] focus:outline-none focus:border-white/10 text-white placeholder:text-zinc-600 transition-all font-medium"
             />
           </div>
-          <button type="button" className="w-[46px] h-[46px] flex-shrink-0 flex items-center justify-center bg-[#111114] rounded-xl border border-white/10">
+          <button type="button" className="w-[46px] h-[46px] flex-shrink-0 flex items-center justify-center soft-card-inner">
             <Edit2 className="w-4 h-4 text-zinc-400" />
           </button>
-          <div className="w-[46px] h-[46px] flex-shrink-0 rounded-full bg-gradient-to-br from-red-400 to-red-500 flex items-center justify-center text-white font-bold text-lg border border-red-500/50 shadow-inner">
+          <div className="w-[46px] h-[46px] flex-shrink-0 rounded-[14px] bg-[#ffffff] text-black flex items-center justify-center font-bold text-lg shadow-sm">
             {user?.first_name ? user.first_name.charAt(0).toUpperCase() : 'B'}
           </div>
         </form>
@@ -216,20 +216,20 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
       {/* Mini Active Lists */}
       <div className="px-4 py-4 grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1">En Çok Artanlar</div>
+          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">En Çok Artanlar</div>
           {bultenData?.gainers?.slice(0, 3).map((g: any, i: number) => (
-            <div key={i} onClick={() => onSearch(g.symbol)} className="premium-card p-3 flex justify-between items-center active:bg-white/5 transition-transform active:scale-[0.98]">
-              <span className="font-bold text-sm text-white">{g.symbol}</span>
-              <span className="text-[#10b981] text-[11px] font-bold">{g.change}</span>
+            <div key={i} onClick={() => onSearch(g.symbol)} className="soft-card p-3 flex justify-between items-center active:bg-white/5 transition-all">
+              <span className="font-bold text-[15px]">{g.symbol}</span>
+              <span className="metric-up text-[12px] font-semibold">{g.change}</span>
             </div>
           ))}
         </div>
         <div className="space-y-2">
-          <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1">En Çok Düşenler</div>
+          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">En Çok Düşenler</div>
           {bultenData?.losers?.slice(0, 3).map((l: any, i: number) => (
-            <div key={i} onClick={() => onSearch(l.symbol)} className="premium-card p-3 flex justify-between items-center active:bg-white/5 transition-transform active:scale-[0.98]">
-              <span className="font-bold text-sm text-white">{l.symbol}</span>
-              <span className="text-[#ef4444] text-[11px] font-bold">{l.change}</span>
+            <div key={i} onClick={() => onSearch(l.symbol)} className="soft-card p-3 flex justify-between items-center active:bg-white/5 transition-all">
+              <span className="font-bold text-[15px]">{l.symbol}</span>
+              <span className="metric-down text-[12px] font-semibold">{l.change}</span>
             </div>
           ))}
         </div>
@@ -277,10 +277,10 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
 };
 
 const QuickStat = ({ title, value, change, color = 'text-white' }: any) => (
-  <div className="min-w-[130px] premium-card p-3">
-    <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">{title}</div>
-    <div className={`text-[16px] font-bold truncate ${color}`}>{value || '---'}</div>
-    <div className={`text-[11px] font-bold mt-0.5 ${change?.includes('+') ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>
+  <div className="min-w-[130px] soft-card p-3.5 flex flex-col justify-between">
+    <div className="text-[11px] font-semibold text-zinc-500 mb-2">{title}</div>
+    <div className={`text-[17px] font-bold truncate ${color}`}>{value || '---'}</div>
+    <div className={`text-[12px] font-semibold mt-1 ${change?.includes('+') ? 'metric-up' : 'metric-down'}`}>
       {change || '0.00%'}
     </div>
   </div>
@@ -300,7 +300,7 @@ const FavoriteCard = ({ symbol, onSelect, onRemove }: any) => {
   }, [symbol]);
 
   return (
-    <div onClick={() => onSelect(symbol)} className="premium-card p-4 active:scale-[0.98] transition-all relative group cursor-pointer">
+    <div onClick={() => onSelect(symbol)} className="soft-card p-4 active:scale-[0.98] transition-all relative group cursor-pointer">
       <div className="flex justify-between items-start mb-2">
         <span className="font-bold text-[15px]">{symbol}</span>
         <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="text-[#ff9d00]">
@@ -366,17 +366,17 @@ const Kurumsal = ({ akdData }: { akdData: any }) => {
       <div className="flex gap-2 p-4">
         <div className="relative flex-[1.2]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
-          <input type="text" placeholder="Kurum ara..." className="w-full premium-card !bg-opacity-50 py-2.5 pl-9 pr-2 text-[13px] focus:outline-none text-white transition-all focus:border-white/20" />
+          <input type="text" placeholder="Kurum ara..." className="w-full soft-card-inner py-3 pl-10 pr-3 text-[13px] focus:outline-none text-white transition-all font-medium" />
         </div>
-        <div className="relative flex-1 premium-card flex items-center px-3 cursor-pointer">
-          <span className="text-[13px] font-medium text-white">20 Şubat</span>
+        <div className="relative flex-1 soft-card-inner flex items-center px-3 cursor-pointer">
+          <span className="text-[13px] font-medium text-zinc-300">20 Şubat</span>
           <ChevronDown className="w-4 h-4 ml-auto text-zinc-500" />
         </div>
-        <div className="relative flex-[0.9] premium-card flex items-center px-3 cursor-pointer">
-          <span className="text-[13px] font-medium text-white">Saat Seç</span>
+        <div className="relative flex-[0.9] soft-card-inner flex items-center px-3 cursor-pointer">
+          <span className="text-[13px] font-medium text-zinc-300">Saat Seç</span>
           <ChevronDown className="w-4 h-4 ml-auto text-zinc-500" />
         </div>
-        <button className="w-10 flex-shrink-0 premium-card flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
+        <button className="w-11 flex-shrink-0 soft-card-inner flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
           <RefreshCw className="w-4 h-4 text-zinc-400" />
         </button>
       </div>
@@ -470,8 +470,8 @@ const Bulten = ({ data, user }: { data: any, user: any }) => (
 );
 
 const MarketSection = ({ title, data }: any) => (
-  <div className="premium-card overflow-hidden">
-    <div className="px-4 py-3 font-bold border-b border-white/5 text-[15px] premium-text-gradient">{title}</div>
+  <div className="soft-card overflow-hidden">
+    <div className="px-5 py-3.5 font-semibold border-b border-white/5 text-[15px]">{title}</div>
     <div className="flex flex-col">
       {(data && data.length > 0) ? data.map((item: any, i: number) => (
         <div key={i} className="flex justify-between items-center px-4 py-3 border-b border-white/5 last:border-0">
@@ -527,13 +527,13 @@ const Diger = ({ bultenData }: { bultenData: any }) => {
 };
 
 const DigerMenuItem = ({ icon: Icon, title, subtitle, onClick }: any) => (
-  <div className="flex items-center gap-4 premium-card p-4 active:bg-white/5 transition-colors cursor-pointer" onClick={onClick}>
-    <div className={`w-12 h-12 rounded-xl border border-white/5 bg-black/40 flex items-center justify-center`}>
-      <Icon className={`w-6 h-6 text-white opacity-90`} />
+  <div className="flex items-center gap-4 soft-card p-4 active:bg-white/5 transition-colors cursor-pointer" onClick={onClick}>
+    <div className={`w-12 h-12 rounded-[14px] soft-card-inner flex items-center justify-center`}>
+      <Icon className={`w-5 h-5 text-white stroke-2`} />
     </div>
     <div className="flex-1">
-      <div className="font-bold text-[16px] text-white premium-text-gradient">{title}</div>
-      <div className="text-sm text-zinc-500 mt-0.5">{subtitle}</div>
+      <div className="font-semibold text-[16px] text-white">{title}</div>
+      <div className="text-[13px] text-zinc-500 mt-0.5">{subtitle}</div>
     </div>
     <ChevronDown className="w-5 h-5 text-zinc-600 -rotate-90" />
   </div>
@@ -662,13 +662,13 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
       ) : (
         <div className="p-4 space-y-4 pb-20">
           {stock && (
-            <div className="premium-card p-5">
-              <div className="flex justify-between items-start mb-4">
+            <div className="soft-card p-6">
+              <div className="flex justify-between items-start mb-6">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-3xl font-black tracking-tight premium-text-gradient">{symbol.toUpperCase()}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-white">{symbol.toUpperCase()}</h1>
                     <button onClick={() => onToggleFavorite(symbol)}>
-                      <Star className={`w-6 h-6 ${favorites.includes(symbol.toUpperCase()) ? 'fill-[#38bdf8] text-[#38bdf8]' : 'text-zinc-600'}`} />
+                      <Star className={`w-6 h-6 transition-colors ${favorites.includes(symbol.toUpperCase()) ? 'fill-white text-white' : 'text-zinc-600'}`} />
                     </button>
                   </div>
                   <p className="text-xs text-zinc-500 uppercase font-bold tracking-widest mt-1">{stock.name}</p>
@@ -731,8 +731,8 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
 
           {tab === 'teknik' && (
             <div className="space-y-4">
-              <div className="premium-card p-5">
-                <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-4">Teknik Göstergeler (Real-time)</h3>
+              <div className="soft-card p-5">
+                <h3 className="text-zinc-500 text-[11px] font-semibold uppercase tracking-wider mb-4">Teknik Analiz Özeti</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-black/40 p-3 rounded-xl border border-white/5 text-center">
                     <div className="text-[10px] text-zinc-500 font-bold uppercase mb-1">RSI (14)</div>

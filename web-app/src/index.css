@@ -1,20 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --tg-theme-bg-color: #050505;
-  --tg-theme-secondary-bg-color: #0d0d0d;
-  --tg-theme-text-color: #e5e7eb;
-  --tg-theme-hint-color: #6b7280;
-  --tg-theme-link-color: #38bdf8;
-  --tg-theme-button-color: #38bdf8;
-  --tg-theme-button-text-color: #000000;
-
-  --up-color: #10b981;
-  --down-color: #ef4444;
-  --accent-color: #38bdf8;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -22,58 +11,106 @@
 }
 
 body {
-  background-color: var(--tg-theme-bg-color);
-  color: var(--tg-theme-text-color);
+  background-color: #000000;
+  color: #ffffff;
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
   user-select: none;
-  background-image: radial-gradient(circle at 50% 0%, #151515 0%, #050505 70%);
 }
 
 ::-webkit-scrollbar {
   display: none;
 }
 
-.glass {
-  background: rgba(15, 15, 15, 0.4);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-.premium-card {
-  background: linear-gradient(180deg, rgba(20,20,20,0.8) 0%, rgba(10,10,10,0.8) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: 0 4px 20px -2px rgba(0,0,0,0.5);
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* YENİ SOFT VE MİNİMAL TASARIM SINIFLARI */
+.soft-card {
+  background: #0D0D0F;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  transition: all 0.2s ease;
+}
+
+.soft-card-inner {
+  background: #141417;
+  border: 1px solid rgba(255, 255, 255, 0.03);
   border-radius: 16px;
 }
 
-.premium-text-gradient {
-  background: linear-gradient(to right, #ffffff, #a1a1aa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.soft-button {
+  background: #ffffff;
+  color: #000000;
+  border-radius: 100px;
+  font-weight: 600;
+  transition: transform 0.2s ease;
 }
 
-@keyframes fadeIn {
+.soft-button:active {
+  transform: scale(0.96);
+}
+
+.soft-icon-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  border-radius: 100px;
+}
+
+.text-muted {
+  color: #8E8E93;
+}
+
+.metric-up {
+  color: #34C759;
+}
+
+.metric-down {
+  color: #FF3B30;
+}
+
+.metric-bg-up {
+  background: rgba(52, 199, 89, 0.1);
+  color: #34C759;
+}
+
+.metric-bg-down {
+  background: rgba(255, 59, 48, 0.1);
+  color: #FF3B30;
+}
+
+@keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.animate-fade-up {
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+/* Yumuşak gradyan arka plan efekti */
+.bg-glow {
+  position: fixed;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+  z-index: -1;
 }
