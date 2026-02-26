@@ -55,13 +55,13 @@ def brand_image(raw_bytes: bytes, symbol: str = "", data_type: str = "AKD") -> b
     font_brand  = _load_font(max(11, w // 38))
 
     # ── 1) Kaynak botu gizle: üstteki watermark bölgesini kapat ──
-    # Hedef botun fotoğrafında "Günlük (Anlık) Veriler / t.me/..." 
-    # satırı yaklaşık ilk %10-15'tedir.
-    cover_top_h = int(h * 0.13)
+    # Hedef botun fotoğrafında üst bölümde sembol ismi, link ve kaynak bilgisi bulunur.
+    # Tamamını bir dikdörtgenle örteceğiz.
+    cover_top_h = int(h * 0.22)   # üst %22'yi kapat (kaynak bot metni)
     draw.rectangle([(0, 0), (w, cover_top_h)], fill=COVER_COLOR)
 
-    # ── 2) Üst başlık çubuğu ekle ────────────────────────────────
-    bar_h = int(h * 0.10)
+    # ── 2) Kendi başlık çubuğumuzu ekle ─────────────────────────────
+    bar_h = int(h * 0.13)
     draw.rectangle([(0, 0), (w, bar_h)], fill=BRAND_BG)
 
     # Sol: Sembol adı + veri tipi
