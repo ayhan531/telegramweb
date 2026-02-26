@@ -78,62 +78,54 @@ async def derinlik(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
         return
-    
+
     symbol = context.args[0].upper()
-    
-    # 1) Emir defteri (order book) - önbellekten önce dene
-    import os, json, time as time_mod
-    cache_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        f'../data/matriks/{symbol}_derinlik.json'
-    )
-    
-    if os.path.exists(cache_path):
-        try:
-            with open(cache_path) as f:
-                cached = json.load(f)
-            d = cached.get('data', {})
-            bids = d.get('bids', [])
-            asks = d.get('asks', [])
-            age  = int((time_mod.time() * 1000 - cached.get('timestamp', 0)) / 60000)
-            
-            if bids or asks:
-                text  = f"\u25b6  *{symbol}  \u2014  EMIR DEFTERİ*\n"
-                text += f"`{'FİYAT':>10}  {'LOT':<12}   {'FİYAT':<10}  {'LOT':>10}`\n"
-                text += f"`{'\u2500'*44}`\n"
-                rows = max(len(bids), len(asks))
-                for i in range(min(rows, 8)):
-                    b = bids[i] if i < len(bids) else {}
-                    a = asks[i] if i < len(asks) else {}
-                    b_fiyat = b.get('fiyat', '---')
-                    b_lot   = b.get('adet',  '---')
-                    a_fiyat = a.get('fiyat', '---')
-                    a_lot   = a.get('adet',  '---')
-                    text += f"`{b_fiyat:>10}  {b_lot:<12}   {a_fiyat:<10}  {a_lot:>10}`\n"
-                text += f"`{'\u2500'*44}`\n"
-                text += f"❯ _{age} dk. önce güncellendi — \u00a9 2026 Analytical Data Terminal_"
-                await update.message.reply_text(text, parse_mode='Markdown')
-                return
-        except Exception:
-            pass
-    
-    # 2) Fallback: Anlık fiyat verisi göster, kullanıcıya bilgi ver
+
+    # 1) Önbellek: Userbot'un indirdiği derinlik fotoğrafını dene
+    import time as time_mod
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../data/matriks')
+    photo_path = os.path.join(data_dir, f"{symbol}_derinlik.jpg")
+    text_path  = os.path.join(data_dir, f"{symbol}_derinlik.txt")
+
+    if os.path.exists(photo_path):
+        age_min = int((time_mod.time() - os.path.getmtime(photo_path)) / 60)
+        caption = (
+            f"{symbol} — Derinlik (25 Kademe)\n"
+            f"© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır."
+        )
+        with open(photo_path, 'rb') as f:
+            await update.message.reply_photo(photo=f, caption=caption)
+        return
+
+    if os.path.exists(text_path):
+        with open(text_path, encoding='utf-8') as f:
+            raw = f.read()
+        await update.message.reply_text(
+            f"\u25b6 *{symbol} — Derinlik*\n\n`{raw[:3000]}`",
+            parse_mode='Markdown'
+        )
+        return
+
+    # 2) Fallback: Anlık fiyat göster
     data = get_unified_data(symbol)
     if not data or "error" in data:
-        await update.message.reply_text(f"HATA: {symbol} verisi bulunamadı.")
+        await update.message.reply_text(
+            f"Veri bulunamadı.\n_{symbol} için derinlik verisi henüz hazırlanıyor. Lütfen birkaç dakika bekleyin._",
+            parse_mode='Markdown'
+        )
         return
-    
+
     text = (
-        f"\u25b6  *{symbol}  \u2014  PIYASA VERİSİ*\n"
+        f"\u25b6 *{symbol} — PİYASA*\n"
         f"`{'\u2500'*30}`\n"
-        f"▪ *Fiyat:*   `{data['price']:.2f} \u20ba`\n"
+        f"▪ *Fiyat:*   `{data['price']:.2f} ₺`\n"
         f"▪ *Açılış:* `{data.get('open', '---')}`\n"
         f"▪ *Yüksek:* `{data.get('high', '---')}`\n"
         f"▪ *Düşük:*  `{data.get('low', '---')}`\n"
         f"▪ *Hacim:*  `{data.get('volume', '---')}`\n"
         f"`{'\u2500'*30}`\n"
-        f"\u276f _(Canlı emir defteri için kısa süre içinde hazır olacak)_\n"
-        f"\u276f _\u00a9 2026 Analytical Data Terminal. T\u00fcm Haklar\u0131 Sakl\u0131d\u0131r._"
+        f"❯ _25 kademeli emir defteri henüz hazırlanıyor..._\n"
+        f"❯ _© 2026 Analytical Data Terminal._"
     )
     await update.message.reply_text(text, parse_mode='Markdown')
 
@@ -165,33 +157,63 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("HATA: Sembol girilmedi.")
+        await update.message.reply_text(
+            "Kullanım: `/akd THYAO`",
+            parse_mode='Markdown'
+        )
         return
-    
+
     symbol = context.args[0].upper()
-    data = await get_real_akd_data(symbol)
-    
-    if not data or not data['buyers']:
-        await update.message.reply_text(f"HATA: {symbol} icin gercek AKD verisi su an alinamiyor.")
+    import time as time_mod
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../data/matriks')
+
+    # 1) Kaydedilmiş AKD fotoğrafı varsa gönder
+    photo_path = os.path.join(data_dir, f"{symbol}_akd_gunluk.jpg")
+    text_path  = os.path.join(data_dir, f"{symbol}_akd_gunluk.txt")
+
+    if os.path.exists(photo_path):
+        age_min = int((time_mod.time() - os.path.getmtime(photo_path)) / 60)
+        caption = f"{symbol} — Aracı Kurum Dağılımı\n© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır."
+        with open(photo_path, 'rb') as f:
+            await update.message.reply_photo(photo=f, caption=caption)
         return
-        
-    # Profesyonel AKD görünümü
-    # Her kurumun ismini 18 karaktere sabitleyip daha düzgün görünmesini sağlıyoruz.
-    text = f"▰ *MATRİKS CANLI VERİ TÜRÜ: AKD*\n"
-    text += f"❖ *Sembol:* `{symbol}`\n"
-    text += f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    text += f"▲ *ALANLAR*\n"
-    for b in data['buyers']:
-        text += f"`{b['kurum'][:18]:<18} | {b['lot']:>12}`\n"
-    
-    text += f"\n▼ *SATICILAR*\n"
-    for s in data['sellers']:
-        text += f"`{s['kurum'][:18]:<18} | {s['lot']:>12}`\n"
-    
-    text += f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    text += f"❯ _© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır._\n"
-    text += f"❖ _Kullanıcı Seviyesi: PRO_"
-    
+
+    if os.path.exists(text_path):
+        with open(text_path, encoding='utf-8') as f:
+            raw = f.read()
+        await update.message.reply_text(
+            f"▶ *{symbol} — AKD*\n\n`{raw[:3000]}`",
+            parse_mode='Markdown'
+        )
+        return
+
+    # 2) Fallback: API üzerinden çek
+    data = await get_real_akd_data(symbol)
+    if not data or not data.get('buyers'):
+        await update.message.reply_text(
+            f"_{symbol} için AKD verisi henüz hazırlanıyor. Lütfen kısa süre bekleyin._",
+            parse_mode='Markdown'
+        )
+        return
+
+    text = f"▶ *{symbol} — ARACI KURUM DAĞILIMI*\n"
+    text += f"`{'\u2500'*36}`\n"
+    text += f"`{'KURUM':<18} {'ORAN':>6} {'NET LOT':>12}`\n"
+    text += f"`{'\u2500'*36}`\n"
+
+    for b in data.get('buyers', []):
+        lot = str(b.get('lot', '---'))
+        oran = str(b.get('oran', '---'))
+        text += f"`{b['kurum'][:18]:<18} {oran:>6} {lot:>12}`\n"
+
+    text += f"`{'\u2500'*36}`\n"
+    for s in data.get('sellers', []):
+        lot = str(s.get('lot', '---'))
+        oran = str(s.get('oran', '---'))
+        text += f"`{s['kurum'][:18]:<18} {oran:>6} {lot:>12}`\n"
+
+    text += f"`{'\u2500'*36}`\n"
+    text += f"❯ _© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır._"
     await update.message.reply_text(text, parse_mode='Markdown')
 
 # --- Alarm İşlemleri ---
