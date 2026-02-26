@@ -179,27 +179,69 @@ if (!fs.existsSync(MATRIKS_DATA_DIR)) {
     fs.mkdirSync(MATRIKS_DATA_DIR, { recursive: true });
 }
 
-// Matriks Köprü (Bridge) Veri Alma Endpoint'i
+// Matriks Köprü (Bridge) AKD Veri Alma Endpoint'i
 app.post('/api/push-matriks-akd/:symbol', (req, res) => {
     const { symbol } = req.params;
     const { token, data } = req.body;
-
-    // Basit bir güvenlik kontrolü (Token'ı .env'den alır)
     if (token !== process.env.MATRIKS_BRIDGE_TOKEN) {
         return res.status(403).json({ error: 'Bridge Token Geçersiz' });
     }
-
     try {
         const filePath = path.join(MATRIKS_DATA_DIR, `${symbol.toUpperCase()}_akd.json`);
-        fs.writeFileSync(filePath, JSON.stringify({
-            timestamp: Date.now(),
-            data: data
-        }));
-        console.log(`[MATRIKS] ${symbol} AKD verisi güncellendi.`);
-        res.json({ success: true, message: 'Veri başarıyla kaydedildi' });
+        fs.writeFileSync(filePath, JSON.stringify({ timestamp: Date.now(), data }));
+        console.log(`[BRIDGE] ${symbol} AKD verisi güncellendi.`);
+        res.json({ success: true });
     } catch (err) {
-        console.error('Matriks Data Yazma Hatası:', err);
         res.status(500).json({ error: 'Dosya yazılamadı' });
+    }
+});
+
+// Matriks Köprü (Bridge) Derinlik (Order Book) Veri Alma Endpoint'i
+app.post('/api/push-matriks-derinlik/:symbol', (req, res) => {
+    const { symbol } = req.params;
+    const { token, data } = req.body;
+    if (token !== process.env.MATRIKS_BRIDGE_TOKEN) {
+        return res.status(403).json({ error: 'Bridge Token Geçersiz' });
+    }
+    try {
+        const filePath = path.join(MATRIKS_DATA_DIR, `${symbol.toUpperCase()}_derinlik.json`);
+        fs.writeFileSync(filePath, JSON.stringify({ timestamp: Date.now(), data }));
+        console.log(`[BRIDGE] ${symbol} Derinlik verisi güncellendi.`);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Dosya yazılamadı' });
+    }
+});
+
+// Önbelleğe alınmış Derinlik verisini okuma endpoint'i
+app.get('/api/derinlik-cache/:symbol', (req, res) => {
+    const { symbol } = req.params;
+    const filePath = path.join(MATRIKS_DATA_DIR, `${symbol.toUpperCase()}_derinlik.json`);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Henüz derinlik verisi yok' });
+    }
+    try {
+        const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const ageMs = Date.now() - raw.timestamp;
+        res.json({ ...raw.data, age_seconds: Math.round(ageMs / 1000) });
+    } catch {
+        res.status(500).json({ error: 'Dosya okunamadı' });
+    }
+});
+
+// Önbelleğe alınmış AKD verisini okuma endpoint'i
+app.get('/api/akd-cache/:symbol', (req, res) => {
+    const { symbol } = req.params;
+    const filePath = path.join(MATRIKS_DATA_DIR, `${symbol.toUpperCase()}_akd.json`);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Henüz AKD verisi yok' });
+    }
+    try {
+        const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const ageMs = Date.now() - raw.timestamp;
+        res.json({ ...raw.data, age_seconds: Math.round(ageMs / 1000) });
+    } catch {
+        res.status(500).json({ error: 'Dosya okunamadı' });
     }
 });
 

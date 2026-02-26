@@ -73,29 +73,67 @@ async def yardim(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def derinlik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("HATA: Sembol girilmedi.")
+        await update.message.reply_text(
+            "Kullanım: `/derinlik THYAO`",
+            parse_mode='Markdown'
+        )
         return
     
     symbol = context.args[0].upper()
-    data = get_unified_data(symbol)
     
+    # 1) Emir defteri (order book) - önbellekten önce dene
+    import os, json, time as time_mod
+    cache_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        f'../data/matriks/{symbol}_derinlik.json'
+    )
+    
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path) as f:
+                cached = json.load(f)
+            d = cached.get('data', {})
+            bids = d.get('bids', [])
+            asks = d.get('asks', [])
+            age  = int((time_mod.time() * 1000 - cached.get('timestamp', 0)) / 60000)
+            
+            if bids or asks:
+                text  = f"\u25b6  *{symbol}  \u2014  EMIR DEFTERİ*\n"
+                text += f"`{'FİYAT':>10}  {'LOT':<12}   {'FİYAT':<10}  {'LOT':>10}`\n"
+                text += f"`{'\u2500'*44}`\n"
+                rows = max(len(bids), len(asks))
+                for i in range(min(rows, 8)):
+                    b = bids[i] if i < len(bids) else {}
+                    a = asks[i] if i < len(asks) else {}
+                    b_fiyat = b.get('fiyat', '---')
+                    b_lot   = b.get('adet',  '---')
+                    a_fiyat = a.get('fiyat', '---')
+                    a_lot   = a.get('adet',  '---')
+                    text += f"`{b_fiyat:>10}  {b_lot:<12}   {a_fiyat:<10}  {a_lot:>10}`\n"
+                text += f"`{'\u2500'*44}`\n"
+                text += f"❯ _{age} dk. önce güncellendi — \u00a9 2026 Analytical Data Terminal_"
+                await update.message.reply_text(text, parse_mode='Markdown')
+                return
+        except Exception:
+            pass
+    
+    # 2) Fallback: Anlık fiyat verisi göster, kullanıcıya bilgi ver
+    data = get_unified_data(symbol)
     if not data or "error" in data:
-        await update.message.reply_text(f"HATA: {symbol} verisi bulunamadi.")
+        await update.message.reply_text(f"HATA: {symbol} verisi bulunamadı.")
         return
-        
-    # Profesyonel tablo görünümü
+    
     text = (
-        f"❖ *PİYASA VERISI: {symbol}*\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"◼ *Şirket:* `{data['name']}`\n"
-        f"◼ *Fiyat:*  `{data['price']:.2f} ₺`\n\n"
-        f"▰ *Günlük Özet*\n"
-        f"• Açılış: `{data['open']}`\n"
-        f"• Yüksek: `{data['high']}`\n"
-        f"• Düşük:  `{data['low']}`\n"
-        f"• Hacim:  `{data['volume']}`\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"❯ _© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır._"
+        f"\u25b6  *{symbol}  \u2014  PIYASA VERİSİ*\n"
+        f"`{'\u2500'*30}`\n"
+        f"▪ *Fiyat:*   `{data['price']:.2f} \u20ba`\n"
+        f"▪ *Açılış:* `{data.get('open', '---')}`\n"
+        f"▪ *Yüksek:* `{data.get('high', '---')}`\n"
+        f"▪ *Düşük:*  `{data.get('low', '---')}`\n"
+        f"▪ *Hacim:*  `{data.get('volume', '---')}`\n"
+        f"`{'\u2500'*30}`\n"
+        f"\u276f _(Canlı emir defteri için kısa süre içinde hazır olacak)_\n"
+        f"\u276f _\u00a9 2026 Analytical Data Terminal. T\u00fcm Haklar\u0131 Sakl\u0131d\u0131r._"
     )
     await update.message.reply_text(text, parse_mode='Markdown')
 

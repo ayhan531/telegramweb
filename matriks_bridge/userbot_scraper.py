@@ -1,120 +1,235 @@
 import asyncio
+import re
 import requests
 import time
 from telethon import TelegramClient
 
-# =========================================================================
-# TELEGRAM USER-BOT KÖPRÜSÜ (@ucretsizderinlikbot'tan Veri Çekme)
-# =========================================================================
-# UYARI: Telegram API kuralları gereği bir BOT başka bir BOTA mesaj atamaz.
-# Bu yüzden bu işlemi Telegram hesabınız üzerinden (bir Kullanıcı olarak) 
-# yapmalıyız. Bu script, sizin adınıza hedef bota istek atıp cevabı okur ve 
-# Render API'sine (kendi sisteminize) "Matriks" verisiymiş gibi gönderir.
-# =========================================================================
+API_ID = 37031232
+API_HASH = "518b15f17950300182c1edf6921e7c92"
+SESSION_NAME = "akd_scraper_session"
 
-# 1. Aşama: my.telegram.org adresine gidip "API Development Tools" 
-#    kısmından kendi Telegram hesabınız için bir API_ID ve API_HASH almalısınız.
-API_ID = 1234567  # BURAYA KENDİ ID'NİZİ YAZIN
-API_HASH = "string_hash_buraya_gelecek" # BURAYA KENDİ HASH'İNİZİ YAZIN
-SESSION_NAME = "akd_scraper_session" # Giriş yapıldığında oluşacak dosya adı
-
-# 2. Aşama: Hedef bot ve Sınır ayarları
 TARGET_BOT = "ucretsizderinlikbot"
-RENDER_API_URL = "https://telegramweb-gd62.onrender.com/api/push-matriks-akd"
-API_TOKEN = "MATRIKS_GIZLI_TOKEN_123" # main.py ve .env'deki şifreyle aynı olmalı
+RENDER_API_URL = "https://telegramweb-gd62.onrender.com/api/push-matriks"
+API_TOKEN = "MATRIKS_GIZLI_TOKEN_123"
 
-# Taramasını istediğiniz ve kendi botunuzda sergilenecek favori borsa hisseleri
 SYMBOLS_TO_TRACK = ["THYAO", "EREGL", "TUPRS", "YKBNK", "ISCTR", "ASELS", "BIMAS"]
-UPDATE_INTERVAL = 60 # Hedef bota flood (spam) yapmamak için bekleme süresi
+UPDATE_INTERVAL = 60
 
 client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
 
-def parse_bot_response(symbol, text):
+# -----------------------------------------------------------------------
+# PARSE: Hedef botun /akd cevabını parçala
+# -----------------------------------------------------------------------
+def parse_akd_response(symbol, text):
     """
-    Hedef botun (ucretsizderinlikbot) attığı mesajı analiz edip bizim
-    profesyonel terminalin anlayacağı JSON kalıbına dönüştürür.
-    Not: Hedef botun mesaj formatı değişirse bu regex/split kısmı güncellenmelidir.
+    ucretsizderinlikbot'un /akd cevabını parçalayıp standart JSON'a çevirir.
+    Satır satır gezerek ALAN ve SATAN tablolarını ayırt eder.
     """
-    # Örnek Varsayılan Şema (Gelen Metni Parçaladığımızı Varsayıyoruz)
-    # Satın almadan bu özelliği kullanacaksanız, hedefin gönderdiği formata
-    # göre ufak string split işlemleri eklenmesi gerekir. Şimdilik sistem 
-    # uyumluluğunu test etmek için "mock" veri döndürüyor.
+    buyers = []
+    sellers = []
     
+    if not text:
+        return None
+
+    lines = text.strip().split('\n')
+    mode = None
+
+    for line in lines:
+        line = line.strip()
+        # Alış/satış section başlıklarını yakala
+        if re.search(r'alan|alış|net alım', line, re.IGNORECASE):
+            mode = 'buy'
+            continue
+        elif re.search(r'satan|satış|net satım', line, re.IGNORECASE):
+            mode = 'sell'
+            continue
+
+        # Satır içinde kurum ve lot bilgisi var mı?
+        # Örnek format: "İş Yatırım    2.450.000" veya "İŞ YAT  |  2,450,000"
+        match = re.search(r'([A-ZÇĞİÖŞÜa-zçğışöşü\s\.]+?)\s+[\|]?\s*([\d\.,]+)', line)
+        if match and mode:
+            kurum = match.group(1).strip()
+            lot = match.group(2).strip()
+            if len(kurum) > 2 and any(c.isdigit() for c in lot):
+                entry = {"kurum": kurum[:22], "lot": lot, "maliyet": "---"}
+                if mode == 'buy':
+                    buyers.append(entry)
+                else:
+                    sellers.append(entry)
+
+    # Eğer hiç parse edemediyse metin bazlı ham cevabı gönder
+    if not buyers and not sellers:
+        return {
+            "symbol": symbol,
+            "raw": text,
+            "buyers": [],
+            "sellers": [],
+            "status": "parse_edilemedi"
+        }
+
     return {
         "symbol": symbol,
-        "buyers": [
-            {"kurum": "Bank of America", "lot": "2,450,000", "maliyet": "---"},
-            {"kurum": "Yatirim Finans", "lot": "1,100,000", "maliyet": "---"},
-            {"kurum": "Is Yatirim", "lot": "850,000", "maliyet": "---"}
-        ],
-        "sellers": [
-            {"kurum": "Global", "lot": "-1,800,000", "maliyet": "---"},
-            {"kurum": "Gedik", "lot": "-900,000", "maliyet": "---"}
-        ],
-        "source": "UcretsizDerinlikBot (Scraped)",
-        "status": "Güncel",
-        "net_fark": "---"
+        "buyers": buyers[:10],
+        "sellers": sellers[:10],
+        "status": "guncel"
     }
 
+# -----------------------------------------------------------------------
+# PARSE: Hedef botun /derinlik cevabını parçala (Emir Defteri / Order Book)
+# -----------------------------------------------------------------------
+def parse_derinlik_response(symbol, text):
+    """
+    ucretsizderinlikbot'un /derinlik cevabını parçalayıp
+    alış ve satış tarafındaki fiyat/lot seviyelerine böler.
+    Beklenen format örnekleri:
+      311.45   150,000     veya     150,000   311.45
+    """
+    if not text:
+        return None
+
+    bids = []   # Alış tarafı
+    asks = []   # Satış tarafı
+
+    lines = text.strip().split('\n')
+    mode = None
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        lower = line.lower()
+        if re.search(r'alış|bid|al[^t]', lower):
+            mode = 'bid'
+            continue
+        elif re.search(r'satış|ask|sat', lower):
+            mode = 'ask'
+            continue
+
+        # Sayı çiftini yakala: fiyat ve miktar
+        nums = re.findall(r'[\d]{2,}[\.,][\d]+', line)
+        if len(nums) >= 2 and mode:
+            try:
+                # İlk rakam fiyat, ikinci miktar — ya da ters
+                a = float(nums[0].replace('.', '').replace(',', '.'))
+                b = float(nums[1].replace('.', '').replace(',', '.'))
+                # Genellikle fiyat daha küçük sayıdır (örn: 311.45 vs 150000)
+                if a < b:
+                    price, qty = nums[0], nums[1]
+                else:
+                    price, qty = nums[1], nums[0]
+
+                entry = {"fiyat": price, "adet": qty}
+                if mode == 'bid':
+                    bids.append(entry)
+                elif mode == 'ask':
+                    asks.append(entry)
+            except:
+                continue
+
+    if not bids and not asks:
+        return {
+            "symbol": symbol,
+            "raw": text,
+            "bids": [],
+            "asks": [],
+            "status": "parse_edilemedi"
+        }
+
+    return {
+        "symbol": symbol,
+        "bids": bids[:10],
+        "asks": asks[:10],
+        "status": "guncel"
+    }
+
+# -----------------------------------------------------------------------
+# ANA DÖNGÜ: Hem AKD hem Derinlik verisini çek ve Render'a gönder
+# -----------------------------------------------------------------------
 async def fetch_and_push(symbol):
-    print(f"[{time.strftime('%H:%M:%S')}] {symbol} verisi '{TARGET_BOT}' hedefinden isteniyor...")
-    
-    try:
-        # Bota mesaj gönder (Kullanıcı klavyeden yazıyormuş gibi)
-        await client.send_message(TARGET_BOT, f"/akd {symbol}")
-        
-        # Botun cevabını bekle
-        await asyncio.sleep(4) 
-        
-        # Son mesajları al (0 indeksli olan bota attığımız mesaj, 1 veya 2 indeksli olan botun cevabıdır)
-        messages = await client.get_messages(TARGET_BOT, limit=2)
-        
-        bot_response = ""
-        for msg in messages:
-            if msg.sender_id != (await client.get_me()).id:
-                bot_response = msg.text
-                break
-                
-        if bot_response:
-            print(f"✅ Bot cevap verdi ({symbol}). Sisteme yükleniyor...")
-            parsed_data = parse_bot_response(symbol, bot_response)
-            
-            payload = {
-                "token": API_TOKEN,
-                "data": parsed_data
-            }
-            # Kendi sunucumuza gönder
-            res = requests.post(f"{RENDER_API_URL}/{symbol}", json=payload, timeout=5)
-            
-            if res.status_code == 200:
-                print(f"🚀 {symbol} verisi kendi sisteminize başarıyla işlendi!")
-            else:
-                print(f"❌ Aktarım hatası: {res.status_code} - {res.text}")
-        else:
-            print(f"❌ Bottan {symbol} için cevap alınamadı veya gecikti.")
-            
-    except Exception as e:
-        print(f"❌ Ağ hatası: {e}")
+    me = await client.get_me()
+
+    # 1) AKD verisini çek
+    print(f"[{time.strftime('%H:%M:%S')}] {symbol} AKD -> '{TARGET_BOT}'")
+    await client.send_message(TARGET_BOT, f"/akd {symbol}")
+    await asyncio.sleep(4)
+    messages = await client.get_messages(TARGET_BOT, limit=3)
+    akd_text = ""
+    for msg in messages:
+        if msg.sender_id != me.id and msg.text:
+            akd_text = msg.text
+            break
+
+    if akd_text:
+        akd_data = parse_akd_response(symbol, akd_text)
+        if akd_data:
+            res = requests.post(
+                f"{RENDER_API_URL}-akd/{symbol}",
+                json={"token": API_TOKEN, "data": akd_data},
+                timeout=6
+            )
+            status = "OK" if res.status_code == 200 else f"HATA {res.status_code}"
+            print(f"  AKD -> {status}")
+    else:
+        print(f"  AKD -> Cevap yok")
+
+    await asyncio.sleep(3)
+
+    # 2) Derinlik (Order Book) verisini çek
+    print(f"[{time.strftime('%H:%M:%S')}] {symbol} DErinlik -> '{TARGET_BOT}'")
+    await client.send_message(TARGET_BOT, f"/derinlik {symbol}")
+    await asyncio.sleep(5)
+    messages = await client.get_messages(TARGET_BOT, limit=3)
+    derinlik_text = ""
+    for msg in messages:
+        if msg.sender_id != me.id and msg.text:
+            derinlik_text = msg.text
+            break
+
+    if derinlik_text:
+        derinlik_data = parse_derinlik_response(symbol, derinlik_text)
+        if derinlik_data:
+            res = requests.post(
+                f"{RENDER_API_URL}-derinlik/{symbol}",
+                json={"token": API_TOKEN, "data": derinlik_data},
+                timeout=6
+            )
+            status = "OK" if res.status_code == 200 else f"HATA {res.status_code}"
+            print(f"  Derinlik -> {status}")
+    else:
+        print(f"  Derinlik -> Cevap yok")
+
+    # Her hisseden sonra kısa bekleme (flood koruması)
+    await asyncio.sleep(5)
+
 
 async def main():
-    print("==================================================")
-    print(" 🤖 TELEGRAM USER-BOT KÖPRÜSÜ BAŞLATILIYOR 🤖 ")
-    print("==================================================")
-    print("İlk girişte sizden telefon numaranız ve Telegram'dan gelen doğrulama kodunuz istenecektir.")
-    
+    print("=" * 52)
+    print("  VERI KOPRUSU BASLATILIYOR")
+    print("  AKD + DEriNLiK (order book)")
+    print("=" * 52)
+
     await client.start()
-    print("\n✅ Hesaba giriş yapıldı. Dinleme Döngüsü Başlatılıyor...\n")
-    
+    print("Hesaba giris yapildi. Dongu basliyor...\n")
+
     while True:
         for symbol in SYMBOLS_TO_TRACK:
-            await fetch_and_push(symbol)
-            # Ban yememek veya flood filtresine takılmamak için araya 3 saniye koyuyoruz.
-            await asyncio.sleep(3) 
-            
-        print(f"\n🔄 Döngü tamamlandı. {UPDATE_INTERVAL} saniye bekleniyor...\n")
+            try:
+                await fetch_and_push(symbol)
+            except Exception as e:
+                print(f"  HATA ({symbol}): {e}")
+
+        print(f"\nDongu tamamlandi. {UPDATE_INTERVAL}s bekleniyor...\n")
         await asyncio.sleep(UPDATE_INTERVAL)
 
+
 if __name__ == '__main__':
-    # BU SCRİPTİ ÇALIŞTIRMAK İÇİN ŞU KÜTÜPHANELERİ YÜKLEYİN:
-    # pip install telethon requests
-    client.loop.run_until_complete(main())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        print("\nKapatiliyor.")
+    finally:
+        loop.run_until_complete(client.disconnect())
+        loop.close()
