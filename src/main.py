@@ -2,7 +2,7 @@ import logging
 import os
 import matplotlib.pyplot as plt
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, MenuButtonWebApp
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 from dotenv import load_dotenv
 from api.tv_api import get_unified_data, get_history_data
 from api.real_akd_api import get_real_akd_data
@@ -33,12 +33,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "BIST, Kripto ve Emtia piyasalarında *gerçek zamanlı* ve *derinlemesine* analiz sistemine hoş geldiniz.\n\n"
         "Aşağıdaki butona tıklayarak derinlik, analiz, takas ve grafiklere *(Pro Veri Terminali)* kesintisiz olarak erişebilirsiniz.\n\n"
         "▰ *HIZLI KOMUTLAR*\n"
-        "▪ `/derinlik [SEMBOL]` - Anlık Piyasa Özeti (Örn: THYAO)\n"
-        "▪ `/grafik [SEMBOL]`   - YZ Destekli Teknik Analiz\n"
-        "▪ `/akd [SEMBOL]`      - Aracı Kurum Dağılımı (Matriks)\n"
-        "▪ `/alarm [SEMBOL] [FİYAT]` - Algoritmik Fiyat Alarmı\n"
-        "▪ `/alarmlar`          - Aktif Alarmları Yönet\n"
-        "▪ `/yardim`            - Sistem Dokümantasyonu\n"
+        "▪ `/derinlik [SEMBOL]` - 25 Kademe Derinlik\n"
+        "▪ `/akd [SEMBOL]`      - Aracı Kurum Dağılımı\n"
+        "▪ `/takas [SEMBOL]`    - Takas Analizi (Anlık/Tarihsel)\n"
+        "▪ `/islem [SEMBOL]`    - Anlık Gerçekleşen İşlemler\n"
+        "▪ `/teorik [SEMBOL]`   - Teorik Eşleşme Ekranı\n"
+        "▪ `/grafik [SEMBOL]`   - Teknik Analiz Grafiği\n"
+        "▪ `/sirketkarti [SEMBOL]` - Şirket Bilgi Kartı\n"
+        "▪ `/detay [SEMBOL]`    - Hisse Detay Analizi\n"
+        "▪ `/tum [SEMBOL]`      - Toplu Analiz Raporu\n"
+        "▪ `/alarm [SEMBOL] [FİYAT]` - Fiyat Alarmı Kur\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
     
@@ -58,16 +62,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def yardim(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
-        "❖ *PRO KULLANIM REHBERI*\n"
+        "❖ *PRO SİSTEM KILAVUZU*\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Gelişmiş veri terminali üzerinden sistemimize erişmektesiniz. Veri sorgulamak için sembol kodunu komutla birlikte girmeniz yeterlidir.\n\n"
-        "▰ *ÖRNEK KULLANIMLAR*\n"
-        "• Borsa İstanbul: `/derinlik THYAO`\n"
-        "• Kripto Para: `/derinlik BTCUSDT`\n"
-        "• Emtia / Altın: `/derinlik XAUUSD`\n"
-        "• Teknik Analiz: `/grafik EREGL`\n"
-        "• AKD Dökümü: `/akd ASTOR`\n\n"
-        "❯ *İpucu:* Tüm özellikleri tam ekranda ve en yüksek hızda deneyimlemek için 'TERMINALI AC' butonunu kullanın."
+        "Tüm borsa ve analiz verileri için aşağıdaki profesyonel komutları kullanabilirsiniz:\n\n"
+        "*TEMEL VERİLER*\n"
+        "▪ `/derinlik` - 25 Kademe Derinlik\n"
+        "▪ `/akd` - Aracı Kurum Dağılımı\n"
+        "▪ `/takas` - Takas Analizi\n\n"
+        "*GELİŞMİŞ ANALİZ*\n"
+        "▪ `/islem` - Anlık Geçen İşlemler\n"
+        "▪ `/teorik` - Teorik Eşleşme\n"
+        "▪ `/grafik` - Teknik Analiz Grafiği\n"
+        "▪ `/detay` - Teknik Özet & Detay\n\n"
+        "*ŞİRKET & RAPOR*\n"
+        "▪ `/sirketkarti` - Şirket Bilgi Kartı\n"
+        "▪ `/tum` - Toplu Analiz Raporu\n\n"
+        "❯ *Fiyat Alarmı:* `/alarm [SEMBOL] [FİYAT]`\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
     await update.message.reply_text(help_text, parse_mode='Markdown')
 
@@ -161,6 +172,22 @@ async def grafik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("HATA: Grafik olusturulamadi.")
 
+def get_akd_keyboard(symbol):
+    periods = [
+        ["5dk", "15dk", "30dk", "1sa"],
+        ["Günlük", "Dünkü", "3G", "7G"],
+        ["14G", "1Ay", "3Ay", "6Ay"],
+        ["1Yıl", "Ay Başı", "Yıl Başı"]
+    ]
+    keyboard = []
+    for row in periods:
+        line = []
+        for p in row:
+            # callback_data: akd_period_symbol
+            line.append(InlineKeyboardButton(p, callback_data=f"akd_{p}_{symbol}"))
+        keyboard.append(line)
+    return InlineKeyboardMarkup(keyboard)
+
 async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Kullanım: `/akd THYAO`", parse_mode='Markdown')
@@ -175,15 +202,17 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if result["type"] == "photo":
         import io
-        caption = f"{symbol} — Aracı Kurum Dağılımı\n© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır."
+        caption = f"{symbol} — Aracı Kurum Dağılımı (Günlük)\n© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır."
         await update.message.reply_photo(
             photo=io.BytesIO(result["data"]),
-            caption=caption
+            caption=caption,
+            reply_markup=get_akd_keyboard(symbol)
         )
     elif result["type"] == "text":
         await update.message.reply_text(
             f"▶ *{symbol} — AKD*\n\n`{result['data'][:3000]}`",
-            parse_mode='Markdown'
+            parse_mode='Markdown',
+            reply_markup=get_akd_keyboard(symbol)
         )
     else:
         # Fallback: yerel API
@@ -195,6 +224,7 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         text = f"▶ *{symbol} — ARACI KURUM DAĞILIMI*\n"
+        # ... (metin tablo omiited for brevity, keeping same logic)
         text += f"`{'\u2500'*36}`\n"
         text += f"`{'KURUM':<18} {'ORAN':>6} {'NET LOT':>12}`\n"
         text += f"`{'\u2500'*36}`\n"
@@ -205,13 +235,151 @@ async def akd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += f"`{s['kurum'][:18]:<18} {str(s.get('oran','')):>6} {str(s.get('lot','')):>12}`\n"
         text += f"`{'\u2500'*36}`\n"
         text += f"❯ _© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır._"
-        await update.message.reply_text(text, parse_mode='Markdown')
+        await update.message.reply_text(text, parse_mode='Markdown', reply_markup=get_akd_keyboard(symbol))
 
-# --- Alarm İşlemleri ---
+async def akd_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    # data: akd_period_symbol
+    parts = query.data.split('_')
+    if len(parts) < 3: return
+    
+    period = parts[1]
+    symbol = parts[2]
+    
+    # Bilgi mesajı
+    await query.edit_message_caption(
+        caption=f"▶ `{symbol}` için `{period}` verisi güncelleniyor...",
+        reply_markup=get_akd_keyboard(symbol)
+    )
+    
+    result = await call_relay(f"/akd/{symbol}?period={period}")
+    
+    if result["type"] == "photo":
+        import io
+        caption = f"{symbol} — Aracı Kurum Dağılımı ({period})\n© 2026 Analytical Data Terminal. Tüm Hakları Saklıdır."
+        # Fotoğrafı güncelle
+        from telegram import InputMediaPhoto
+        await query.edit_message_media(
+            media=InputMediaPhoto(io.BytesIO(result["data"]), caption=caption),
+            reply_markup=get_akd_keyboard(symbol)
+        )
+    else:
+        err = result.get("data", "Veri alınamadı")
+        await query.edit_message_caption(
+            caption=f"❌ HATA: {err}\n\n{symbol} ({period}) verisine şu an ulaşılamıyor.",
+            reply_markup=get_akd_keyboard(symbol)
+        )
+
+async def islem(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Kullanım: `/islem THYAO`", parse_mode='Markdown')
+        return
+    symbol = context.args[0].upper()
+    msg = await update.message.reply_text(f"▶ `{symbol}` işlem verisi getiriliyor...", parse_mode='Markdown')
+    result = await call_relay(f"/cmd/islem/{symbol}")
+    await msg.delete()
+    if result["type"] == "photo":
+        import io
+        await update.message.reply_photo(photo=io.BytesIO(result["data"]), caption=f"{symbol} — Anlık İşlemler\n© 2026 Analytical Data Terminal.")
+    else:
+        await update.message.reply_text(f"_{symbol} işlem verisi alınamadı._", parse_mode='Markdown')
+
+async def teorik(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Kullanım: `/teorik THYAO`", parse_mode='Markdown')
+        return
+    symbol = context.args[0].upper()
+    msg = await update.message.reply_text(f"▶ `{symbol}` teorik eşleşme verisi getiriliyor...", parse_mode='Markdown')
+    result = await call_relay(f"/cmd/teorik/{symbol}")
+    await msg.delete()
+    if result["type"] == "photo":
+        import io
+        await update.message.reply_photo(photo=io.BytesIO(result["data"]), caption=f"{symbol} — Teorik Eşleşme\n© 2026 Analytical Data Terminal.")
+    else:
+        await update.message.reply_text(f"_{symbol} teorik verisi alınamadı._", parse_mode='Markdown')
+
+async def takas(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Kullanım: `/takas THYAO`", parse_mode='Markdown')
+        return
+    symbol = context.args[0].upper()
+    msg = await update.message.reply_text(f"▶ `{symbol}` takas analizi getiriliyor...", parse_mode='Markdown')
+    result = await call_relay(f"/cmd/takas/{symbol}")
+    await msg.delete()
+    if result["type"] == "photo":
+        import io
+        await update.message.reply_photo(photo=io.BytesIO(result["data"]), caption=f"{symbol} — Takas Analizi\n© 2026 Analytical Data Terminal.")
+    else:
+        await update.message.reply_text(f"_{symbol} takas verisi alınamadı._", parse_mode='Markdown')
+
+async def sirketkarti(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Kullanım: `/sirketkarti THYAO`", parse_mode='Markdown')
+        return
+    symbol = context.args[0].upper()
+    msg = await update.message.reply_text(f"▶ `{symbol}` şirket kartı hazırlanıyor...", parse_mode='Markdown')
+    result = await call_relay(f"/cmd/sirketkarti/{symbol}")
+    await msg.delete()
+    if result["type"] == "photo":
+        import io
+        await update.message.reply_photo(photo=io.BytesIO(result["data"]), caption=f"{symbol} — Şirket Bilgi Kartı\n© 2026 Analytical Data Terminal.")
+    else:
+        await update.message.reply_text(f"_{symbol} şirket bilgisi alınamadı._", parse_mode='Markdown')
+
+async def detay(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Kullanım: `/detay THYAO`", parse_mode='Markdown')
+        return
+    symbol = context.args[0].upper()
+    msg = await update.message.reply_text(f"▶ `{symbol}` teknik detayları getiriliyor...", parse_mode='Markdown')
+    result = await call_relay(f"/cmd/detay/{symbol}")
+    await msg.delete()
+    if result["type"] == "photo":
+        import io
+        await update.message.reply_photo(photo=io.BytesIO(result["data"]), caption=f"{symbol} — Hisse Detayları\n© 2026 Analytical Data Terminal.")
+    else:
+        await update.message.reply_text(f"_{symbol} detay verisi alınamadı._", parse_mode='Markdown')
+
+async def tum(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Kullanım: `/tum THYAO`", parse_mode='Markdown')
+        return
+    symbol = context.args[0].upper()
+    msg = await update.message.reply_text(f"▶ `{symbol}` toplu analiz raporu hazırlanıyor...", parse_mode='Markdown')
+    result = await call_relay(f"/cmd/tum/{symbol}")
+    await msg.delete()
+    if result["type"] == "photo":
+        import io
+        await update.message.reply_photo(photo=io.BytesIO(result["data"]), caption=f"{symbol} — Toplu Analiz Raporu\n© 2026 Analytical Data Terminal.")
+    else:
+        await update.message.reply_text(f"_{symbol} raporu hazırlanırken bir hata oluştu._", parse_mode='Markdown')
+
 def get_db_connection():
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/database.sqlite')
+    # Mutlak yolu garantiye alalım
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_path = os.path.join(base_dir, 'data/database.sqlite')
+    
+    # Dizin yoksa oluştur
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    
+    # Tabloyu oluştur (eğer yoksa)
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS alarms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            symbol TEXT,
+            target_price REAL,
+            condition TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
     return conn
 
 async def alarm_kur(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -348,6 +516,13 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('derinlik', derinlik))
         application.add_handler(CommandHandler('grafik', grafik))
         application.add_handler(CommandHandler('akd', akd))
+        application.add_handler(CommandHandler('islem', islem))
+        application.add_handler(CommandHandler('teorik', teorik))
+        application.add_handler(CommandHandler('takas', takas))
+        application.add_handler(CommandHandler('sirketkarti', sirketkarti))
+        application.add_handler(CommandHandler('detay', detay))
+        application.add_handler(CommandHandler('tum', tum))
+        application.add_handler(CallbackQueryHandler(akd_button_handler, pattern="^akd_"))
         application.add_handler(CommandHandler('alarm', alarm_kur))
         application.add_handler(CommandHandler('alarmlar', alarmlar))
         application.add_handler(CommandHandler('alarmsil', alarm_sil))

@@ -1,13 +1,9 @@
 """
-USERBOT RELAY SERVİSİ
-=====================
-Bizim botumuzdan sorgu gelince hedef bota (@ucretsizderinlikbot) iletir,
-cevabı (fotoğraf veya metin) anlık olarak döndürür.
-Dosya kaydetmez, periyodik tarama yapmaz. Tamamen anlık proxy.
-
-Çalıştırma:
-  pip install telethon aiohttp
-  python3 userbot_relay.py
+USERBOT RELAY v5 (PRIMARY: b0pt_bot)
+=====================================
+- b0pt_bot: ANA KAYNAK (AKD, Derinlik, Analiz, Takas vb.)
+- ucretsizderinlikbot: YEDEK KAYNAK.
+- Her iki bot birbirinin yedeği (fallback) olarak çalışır.
 """
 
 import asyncio
@@ -19,147 +15,156 @@ from aiohttp import web
 from telethon import TelegramClient
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 
-# Fotoğraf markalam modülünü içe aktar
+# Fotoğraf markalama modülünü içe aktar
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from image_brander import brand_image
 
 API_ID   = 37031232
 API_HASH = "518b15f17950300182c1edf6921e7c92"
-SESSION  = "akd_scraper_session"
+SESSION  = os.path.join(os.path.dirname(__file__), "akd_scraper_session")
 
-TARGET_BOT = "ucretsizderinlikbot"
-PORT       = 8765
+# Hedef botlar
+PRIMARY_BOT  = "b0pt_bot"
+FALLBACK_BOT = "ucretsizderinlikbot"
+PORT         = 8765
 
-# Aynı anda gelen sorgular çakışmasın diye lock
 query_lock = asyncio.Lock()
-
 client = TelegramClient(SESSION, API_ID, API_HASH)
 
-
-async def relay_query(command: str) -> dict:
-    """
-    Hedef bota komutu gönder, cevabı bekle ve döndür.
-    Döndürülen dict:
-      { "type": "photo",   "data": <bytes> }
-      { "type": "text",    "data": <str>   }
-      { "type": "error",   "data": <str>   }
-    """
+async def relay_query(command: str, period: str = None, target_bot: str = PRIMARY_BOT) -> dict:
+    """Komutu gönderir, cevap alamazsa diğer botu dener."""
     async with query_lock:
-        try:
-            me = await client.get_me()
-            me_id = me.id
+        # Önce tercih edilen botu dene
+        result = await _execute_query(command, period, target_bot)
+        
+        # Eğer hata varsa veya cevap yoksa diğer botu dene
+        if result["type"] == "error":
+            fallback = FALLBACK_BOT if target_bot == PRIMARY_BOT else PRIMARY_BOT
+            print(f"  ⚠️ {target_bot} başarısız, {fallback} deneniyor...")
+            result = await _execute_query(command, period, fallback)
+            
+        return result
 
-            # Komutu gönder
-            await client.send_message(TARGET_BOT, command)
+async def _execute_query(command: str, period: str, target: str) -> dict:
+    try:
+        if not client.is_connected():
+            await client.connect()
+            
+        me = await client.get_me()
+        me_id = me.id
 
-            # Botun cevabı için bekle (max 10 saniye)
-            for attempt in range(10):
-                await asyncio.sleep(1.2)
-                messages = await client.get_messages(TARGET_BOT, limit=3)
-                for msg in messages:
-                    if msg.sender_id == me_id:
-                        continue
-                    # Fotoğraf cevabı
-                    if msg.media and isinstance(msg.media, (MessageMediaPhoto, MessageMediaDocument)):
-                        buf = io.BytesIO()
-                        await client.download_media(msg, file=buf)
-                        buf.seek(0)
-                        return {"type": "photo", "data": buf.read(), "caption": msg.text or ""}
-                    # Metin cevabı
-                    if msg.text and len(msg.text) > 10:
-                        return {"type": "text", "data": msg.text}
+        print(f"[{time.strftime('%H:%M:%S')}] --> {target}: {command}")
+        await client.send_message(target, command)
 
-            return {"type": "error", "data": "Hedef bot cevap vermedi (timeout)"}
+        bot_msg = None
+        for attempt in range(12):
+            await asyncio.sleep(1.0)
+            messages = await client.get_messages(target, limit=3)
+            for msg in messages:
+                if msg.sender_id != me_id:
+                    bot_msg = msg
+                    break
+            if bot_msg: break
 
-        except Exception as e:
-            return {"type": "error", "data": str(e)}
+        if not bot_msg:
+            return {"type": "error", "data": "Cevap alınamadı."}
 
+        # Periyot Butonları (Eğer varsa tıkla)
+        if period and bot_msg.buttons:
+            found_btn = False
+            for row in bot_msg.buttons:
+                for btn in row:
+                    if period.lower() in btn.text.lower() or btn.text.lower() in period.lower():
+                        await btn.click()
+                        found_btn = True
+                        break
+                if found_btn: break
+                
+            if found_btn:
+                await asyncio.sleep(4)
+                # Güncel mesajı al
+                msgs = await client.get_messages(target, limit=3)
+                for m in msgs:
+                    if m.sender_id != me_id and m.media:
+                        bot_msg = m
+                        break
 
-# ──────────────────────────────────────────────
-#  HTTP ENDPOINT'LERİ
-# ──────────────────────────────────────────────
+        # Fotoğraf işleme
+        if bot_msg.media and isinstance(bot_msg.media, (MessageMediaPhoto, MessageMediaDocument)):
+            buf = io.BytesIO()
+            await client.download_media(bot_msg, file=buf)
+            buf.seek(0)
+            return {"type": "photo", "data": buf.read()}
+        
+        if bot_msg.text:
+            return {"type": "text", "data": bot_msg.text}
 
-async def handle_akd(request: web.Request) -> web.Response:
+        return {"type": "error", "data": "Beklenen formatta veri gelmedi."}
+
+    except Exception as e:
+        return {"type": "error", "data": str(e)}
+
+# --- HTTP Handlers ---
+
+async def handle_akd(request):
     symbol = request.match_info.get("symbol", "").upper()
-    if not symbol:
-        return web.json_response({"error": "Sembol gerekli"}, status=400)
+    period = request.query.get("period")
+    result = await relay_query(f"/akd {symbol}", period=period)
+    return prepare_response(result, symbol, f"AKD ({period or 'Günlük'})")
 
-    print(f"[{time.strftime('%H:%M:%S')}] AKD relay → /akd {symbol}")
-    result = await relay_query(f"/akd {symbol}")
-
-    if result["type"] == "photo":
-        # Kendi markamızı ekle
-        branded = brand_image(result["data"], symbol=symbol, data_type="Aracı Kurum Dağılımı")
-        return web.Response(body=branded, content_type="image/jpeg")
-    elif result["type"] == "text":
-        return web.json_response({"text": result["data"]})
-    else:
-        return web.json_response({"error": result["data"]}, status=502)
-
-
-async def handle_derinlik(request: web.Request) -> web.Response:
+async def handle_derinlik(request):
     symbol = request.match_info.get("symbol", "").upper()
-    if not symbol:
-        return web.json_response({"error": "Sembol gerekli"}, status=400)
-
-    print(f"[{time.strftime('%H:%M:%S')}] Derinlik relay → /derinlik {symbol}")
     result = await relay_query(f"/derinlik {symbol}")
+    return prepare_response(result, symbol, "25 Kademe Derinlik")
 
+async def handle_cmd(request):
+    cmd = request.match_info.get("cmd", "")
+    symbol = request.match_info.get("symbol", "").upper()
+    result = await relay_query(f"/{cmd} {symbol}")
+    
+    titles = {
+        "islem": "Anlık İşlemler",
+        "teorik": "Teorik Eşleşme",
+        "takas": "Takas Analizi",
+        "sirketkarti": "Şirket Bilgi Kartı",
+        "detay": "Hisse Detayları",
+        "tum": "Toplu Analiz"
+    }
+    return prepare_response(result, symbol, titles.get(cmd, cmd.capitalize()))
+
+def prepare_response(result, symbol, title):
     if result["type"] == "photo":
-        # Kendi markamızı ekle
-        branded = brand_image(result["data"], symbol=symbol, data_type="Derinlik  •  25 Kademe")
+        branded = brand_image(result["data"], symbol=symbol, data_type=title)
         return web.Response(body=branded, content_type="image/jpeg")
     elif result["type"] == "text":
         return web.json_response({"text": result["data"]})
     else:
         return web.json_response({"error": result["data"]}, status=502)
 
+async def handle_health(request):
+    try:
+        me = await client.get_me() if client.is_connected() else None
+        return web.json_response({"status": "ok", "account": me.first_name if me else "disconnected"})
+    except:
+        return web.json_response({"status": "error"}, status=500)
 
-async def handle_health(request: web.Request) -> web.Response:
-    me = await client.get_me()
-    return web.json_response({"status": "ok", "account": me.first_name})
-
-
-# ──────────────────────────────────────────────
-#  BAŞLATMA
-# ──────────────────────────────────────────────
-
-async def main():
-    print("=" * 52)
-    print("  USERBOT RELAY SERVİSİ BAŞLATILIYOR")
-    print(f"  Port: {PORT}  |  Hedef: @{TARGET_BOT}")
-    print("=" * 52)
-
+async def start_relay():
     await client.start()
-    me = await client.get_me()
-    print(f"✅ Telegram hesabı: {me.first_name} ({me.id})\n")
-
     app = web.Application()
-    app.router.add_get("/akd/{symbol}",      handle_akd)
+    app.router.add_get("/akd/{symbol}", handle_akd)
     app.router.add_get("/derinlik/{symbol}", handle_derinlik)
-    app.router.add_get("/health",            handle_health)
-
+    app.router.add_get("/cmd/{cmd}/{symbol}", handle_cmd)
+    app.router.add_get("/health", handle_health)
+    
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", PORT)
     await site.start()
-
-    print(f"✅ HTTP Relay aktif → http://127.0.0.1:{PORT}")
-    print(f"   /akd/THYAO     → @{TARGET_BOT}'a /akd THYAO gönderir")
-    print(f"   /derinlik/THYAO → @{TARGET_BOT}'a /derinlik THYAO gönderir")
-    print(f"\nBekliyor... (Ctrl+C ile durdur)\n")
-
-    # Sonsuza kadar çalış
+    print(f"🚀 Relay Aktif (Primary Bot: @{PRIMARY_BOT}): http://127.0.0.1:{PORT}")
     await asyncio.Event().wait()
 
-
 if __name__ == "__main__":
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(main())
+        asyncio.run(start_relay())
     except KeyboardInterrupt:
-        print("\nRelay servisi kapatılıyor...")
-    finally:
-        loop.run_until_complete(client.disconnect())
-        loop.close()
+        print("\nKapatılıyor...")
