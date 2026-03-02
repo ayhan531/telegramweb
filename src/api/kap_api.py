@@ -187,4 +187,4 @@ if __name__ == "__main__":
 
     sys.stdout = _orig_stdout
     sys.stderr = _orig_stderr
-    print(json.dumps(res, ensure_ascii=False, indent=2))
+    print(json.dumps(res, ensure_ascii=False))

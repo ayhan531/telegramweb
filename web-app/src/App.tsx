@@ -216,22 +216,46 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
       {/* Mini Active Lists */}
       <div className="px-4 py-4 grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">En Çok Artanlar</div>
-          {bultenData?.gainers?.slice(0, 3).map((g: any, i: number) => (
+          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5 overflow-hidden">
+            <span className="w-1 h-3 bg-[#00ff88] rounded-full"></span> EN ÇOK ARTANLAR
+          </div>
+          {bultenData?.gainers?.slice(0, 5).map((g: any, i: number) => (
             <div key={i} onClick={() => onSearch(g.symbol)} className="soft-card p-3 flex justify-between items-center active:bg-white/5 transition-all">
-              <span className="font-bold text-[15px]">{g.symbol}</span>
-              <span className="metric-up text-[12px] font-semibold">{g.change}</span>
+              <span className="font-bold text-[14px]">{g.symbol}</span>
+              <span className="metric-up text-[12px] font-bold">{g.change}</span>
             </div>
           ))}
         </div>
         <div className="space-y-2">
-          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">En Çok Düşenler</div>
-          {bultenData?.losers?.slice(0, 3).map((l: any, i: number) => (
+          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5 overflow-hidden">
+            <span className="w-1 h-3 bg-[#ff3b30] rounded-full"></span> EN ÇOK DÜŞENLER
+          </div>
+          {bultenData?.losers?.slice(0, 5).map((l: any, i: number) => (
             <div key={i} onClick={() => onSearch(l.symbol)} className="soft-card p-3 flex justify-between items-center active:bg-white/5 transition-all">
-              <span className="font-bold text-[15px]">{l.symbol}</span>
-              <span className="metric-down text-[12px] font-semibold">{l.change}</span>
+              <span className="font-bold text-[14px]">{l.symbol}</span>
+              <span className="metric-down text-[12px] font-bold">{l.change}</span>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="px-4 mb-6">
+        <div className="soft-card p-4 bg-gradient-to-br from-[#111114] to-[#0a0a0c] border border-white/5">
+          <h4 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-3">BIST 100 ANALİZ ÖZETİ</h4>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="text-center">
+              <div className="text-[10px] text-zinc-500 font-bold mb-1">HACİM (MR)</div>
+              <div className="text-[15px] font-black text-white">171.4</div>
+            </div>
+            <div className="text-center border-x border-white/5">
+              <div className="text-[10px] text-zinc-500 font-bold mb-1">ADET</div>
+              <div className="text-[15px] font-black text-white">4.8B</div>
+            </div>
+            <div className="text-center">
+              <div className="text-[10px] text-zinc-500 font-bold mb-1">GÜNLÜK FARK</div>
+              <div className="text-[15px] font-black text-[#00ff88]">+129.5</div>
+            </div>
+          </div>
         </div>
       </div>
 

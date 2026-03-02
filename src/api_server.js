@@ -63,30 +63,47 @@ async function getCachedExec(command, cacheKey) {
             console.error(`Script Stderr (${cacheKey}):`, stderr);
         }
 
-        const lines = stdout.trim().split('\n');
+        const trimmedStdout = stdout.trim();
         let data = null;
 
-        for (let i = lines.length - 1; i >= 0; i--) {
-            try {
-                const parsed = JSON.parse(lines[i]);
-                if (parsed && typeof parsed === 'object') {
-                    data = parsed;
-                    break;
-                }
-            } catch (e) { continue; }
-        }
+        // Try to parse the whole output first
+        try {
+            data = JSON.parse(trimmedStdout);
+        } catch (e) {
+            // If that fails, find JSON-like object in the output (e.g. { ... })
+            // We look from the end to find the most likely JSON payload
+            const lines = trimmedStdout.split('\n');
+            let potentialJson = "";
+            let openBraces = 0;
+            let foundJson = false;
 
-        if (!data) {
-            console.error(`Invalid JSON output from ${command}. Stdout:`, stdout);
-            throw new Error("Output contains no valid JSON");
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const line = lines[i];
+                potentialJson = line + "\n" + potentialJson;
+                if (line.includes('}')) openBraces++;
+                if (line.includes('{')) openBraces--;
+
+                if (openBraces === 0 && potentialJson.trim().startsWith('{')) {
+                    try {
+                        data = JSON.parse(potentialJson);
+                        foundJson = true;
+                        break;
+                    } catch (err) {
+                        // Not a valid JSON yet, keep looking
+                    }
+                }
+            }
+
+            if (!foundJson) {
+                console.error(`Invalid JSON output from ${command}. Stdout:`, stdout);
+                throw new Error("Output contains no valid JSON");
+            }
         }
 
         cache[cacheKey] = { data, timestamp: now };
         return data;
     } catch (err) {
         console.error(`Exec Error (${cacheKey}):`, err.message);
-        if (err.stdout) console.error("Exec Stdout:", err.stdout);
-        if (err.stderr) console.error("Exec Stderr:", err.stderr);
         throw err;
     }
 }
