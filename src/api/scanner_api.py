@@ -85,22 +85,68 @@ def get_teknik_tarama():
     return results
 
 def get_akd_tarama():
-    return []
+    from api.real_akd_api import get_real_akd_data
+    import asyncio
+    
+    symbols = ["THYAO", "EREGL", "ASELS", "KCHOL", "TUPRS", "YKBNK", "ISCTR", "SAHOL", "BIMAS", "AKBNK"]
+    results = []
+    
+    async def fetch_akd(s):
+        try:
+            data = await get_real_akd_data(s)
+            if data and data.get("buyers"):
+                top = data["buyers"][0]
+                return {
+                    "kurum": top["kurum"],
+                    "detay": f"{s} - En Çok Alan",
+                    "net_hacim": top["lot"],
+                    "yon": "ALIŞ",
+                    "color": "#00ff88"
+                }
+        except: pass
+        return None
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    tasks = [fetch_akd(s) for s in symbols]
+    res = loop.run_until_complete(asyncio.gather(*tasks))
+    loop.close()
+    
+    return [r for r in res if r is not None]
 
 def get_takas_tarama():
-    return []
+    from api.takas_api import get_takas_data
+    
+    symbols = ["THYAO", "EREGL", "ASELS", "KCHOL", "TUPRS"]
+    results = []
+    
+    for s in symbols:
+        try:
+            data = get_takas_data(s)
+            if data and data.get("holders"):
+                top = data["holders"][0]
+                results.append({
+                    "kurum": top["kurum"],
+                    "detay": f"{s} - Ana Saklamacı",
+                    "net_hacim": top["toplam_lot"],
+                    "yon": top["pay"],
+                    "color": "#6366f1"
+                })
+        except: pass
+        
+    return results
 
 def get_kap_ajan(symbol=None):
     """Gerçek KAP bildirimleri - kap_api.py modülünü kullanır."""
     if _real_kap_ajan:
         try:
+            # If no symbol, get latest global news
             results = _real_kap_ajan(symbol)
             if results:
+                # Format for frontend if needed, but App.tsx expects the raw list
                 return results
         except Exception:
             pass
-    
-    # Fallback: kap_api import edilemezse boş döndür
     return []
 
 
