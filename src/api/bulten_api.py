@@ -62,14 +62,23 @@ def get_market_data():
             idx_ch = info.get('regularMarketChangePercent', 0)
         except: pass
 
-    # 3. Commodities (Gold, BTC)
+    # 3. Commodities (Gold, BTC, USD)
     try:
-        # Gold
-        gold = yf.Ticker("GC=F") # Gold Futures as proxy or try XAUUSD=X
-        g_price = gold.info.get('regularMarketPrice', 0)
-        g_ch = gold.info.get('regularMarketChangePercent', 0)
-        comm_list.append({"symbol": "Gram Altın", "price": f"{g_price:,.2f}".replace('.', ','), "change": f"{g_ch:+.2f}%"})
+        # Gold (Gram Altın for TRY users is usually Gold spot * USDTRY / 31.1)
+        # Using a simpler way: yfinance tickers for TRY parity
+        usd_try = yf.Ticker("USDTRY=X")
+        usd_price = usd_try.info.get('regularMarketPrice', 34.42)
+        usd_ch = usd_try.info.get('regularMarketChangePercent', 0)
         
+        gold = yf.Ticker("GC=F") 
+        g_price_usd = gold.info.get('regularMarketPrice', 2000)
+        # Gram Gold TRY estimation: (Spot Gold / 31.1034) * USDTRY
+        gram_gold = (g_price_usd / 31.1034) * usd_price
+        g_ch = gold.info.get('regularMarketChangePercent', 0)
+        
+        comm_list.append({"symbol": "Gram Altın", "price": f"{gram_gold:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'), "change": f"{g_ch:+.2f}%"})
+        comm_list.append({"symbol": "Dolar", "price": f"{usd_price:,.2f}".replace('.', ','), "change": f"{usd_ch:+.2f}%"})
+
         # BTC
         btc = yf.Ticker("BTC-USD")
         b_price = btc.info.get('regularMarketPrice', 0)
@@ -82,7 +91,10 @@ def get_market_data():
     ]
     
     if not comm_list:
-        comm_list = [{"symbol": "Gram Altın", "price": "3.120,40", "change": "+0.12%"}]
+        comm_list = [
+            {"symbol": "Gram Altın", "price": "3.120,40", "change": "+0.12%"},
+            {"symbol": "Dolar", "price": "34,42", "change": "+0.05%"}
+        ]
 
     return idx_p, idx_ch, comm_list, crypto_list
 

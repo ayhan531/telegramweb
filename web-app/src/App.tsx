@@ -207,7 +207,7 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
         <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 -mx-4 px-4">
           <QuickStat title="ALTIN (GRAM)" value={bultenData?.commodity_summary?.[0]?.price} change={bultenData?.commodity_summary?.[0]?.change} />
           <QuickStat title="BITCOIN" value={bultenData?.crypto_summary?.[0]?.price} change={bultenData?.crypto_summary?.[0]?.change} color="text-orange-400" />
-          <QuickStat title="DOLAR" value="34,42" change="+0.05%" color="text-cyan-400" />
+          <QuickStat title="DOLAR" value={bultenData?.commodity_summary?.[1]?.price || "34,42"} change={bultenData?.commodity_summary?.[1]?.change || "+0.05%"} color="text-cyan-400" />
         </div>
       </div>
 
@@ -318,8 +318,29 @@ const FavoriteCard = ({ symbol, onSelect, onRemove }: any) => {
 };
 
 // 2. KURUMSAL (AKD Equivalent)
-const Kurumsal = ({ akdData }: { akdData: any }) => {
+const Kurumsal = ({ akdData: initialAkdData }: { akdData: any }) => {
   const [tab, setTab] = useState('alanlar');
+  const [akdData, setAkdData] = useState(initialAkdData);
+  const [searchSymbol, setSearchSymbol] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setAkdData(initialAkdData);
+  }, [initialAkdData]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchSymbol) return;
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API_BASE}/akd/${searchSymbol.toUpperCase()}`);
+      setAkdData(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const generateBrokerRow = (b: any, index: number, isSeller: boolean) => {
     const letters = b.kurum.substring(0, 2).toUpperCase();
@@ -348,37 +369,49 @@ const Kurumsal = ({ akdData }: { akdData: any }) => {
             <span className={`font-bold text-[15px]`} style={{ color }}>{b.lot}</span>
             <span className="px-1.5 py-0.5 rounded flex items-center justify-center text-[11px] font-bold"
               style={{ backgroundColor: bgBadge, color: color, borderColor: borderBadge, borderWidth: '1px' }}>
-              %{(40 - index * 5).toFixed(2)}
+              %{(b.pay || (40 - index * 5)).toFixed(2)}
             </span>
             <ChevronDown className="w-3 h-3 text-zinc-600 -rotate-90 ml-1" />
           </div>
-          <div className="text-[11px] text-zinc-500 mt-1">{(80 - index * 10).toFixed(1)} Mr ₺</div>
+          <div className="text-[11px] text-zinc-500 mt-1">{b.maliyet !== '---' ? `Mal: ${b.maliyet}` : `${(80 - index * 10).toFixed(1)} Mr ₺`}</div>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="animate-fade-in">
-      <HeaderBar title="Veri Terminali" />
+    <div className="animate-fade-in pb-10">
+      <HeaderBar title={`AKD Terminali ${akdData?.symbol ? `— ${akdData.symbol}` : ''}`} />
 
       {/* Selectors */}
-      <div className="flex gap-2 p-4">
-        <div className="relative flex-[1.2]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
-          <input type="text" placeholder="Kurum ara..." className="w-full soft-card-inner py-3 pl-10 pr-3 text-[13px] focus:outline-none text-white transition-all font-medium" />
+      <div className="p-4 pt-2">
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Hisse sembolü (örn: THYAO)..."
+              value={searchSymbol}
+              onChange={e => setSearchSymbol(e.target.value)}
+              className="w-full soft-card-inner py-3 pl-10 pr-3 text-[13px] focus:outline-none text-white transition-all font-medium"
+            />
+          </div>
+          <button type="submit" className="w-11 h-11 flex-shrink-0 soft-card-inner flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
+            {loading ? <RefreshCw className="w-4 h-4 text-cyan-400 animate-spin" /> : <Activity className="w-4 h-4 text-zinc-400" />}
+          </button>
+        </form>
+      </div>
+
+      <div className="flex gap-2 px-4 mb-2 overflow-x-auto no-scrollbar">
+        <div className="relative flex-1 soft-card-inner flex items-center px-3 py-2 cursor-pointer whitespace-nowrap">
+          <span className="text-[11px] font-medium text-zinc-400">{akdData?.date || 'Bugün'}</span>
         </div>
-        <div className="relative flex-1 soft-card-inner flex items-center px-3 cursor-pointer">
-          <span className="text-[13px] font-medium text-zinc-300">20 Şubat</span>
-          <ChevronDown className="w-4 h-4 ml-auto text-zinc-500" />
+        <div className="relative flex-1 soft-card-inner flex items-center px-3 py-2 cursor-pointer whitespace-nowrap">
+          <span className="text-[11px] font-medium text-zinc-400">{akdData?.status || 'Güncel'}</span>
         </div>
-        <div className="relative flex-[0.9] soft-card-inner flex items-center px-3 cursor-pointer">
-          <span className="text-[13px] font-medium text-zinc-300">Saat Seç</span>
-          <ChevronDown className="w-4 h-4 ml-auto text-zinc-500" />
+        <div className="relative flex-1 soft-card-inner flex items-center px-3 py-2 cursor-pointer whitespace-nowrap">
+          <span className="text-[11px] font-medium text-zinc-200">{akdData?.source || 'İş Yatırım'}</span>
         </div>
-        <button className="w-11 flex-shrink-0 soft-card-inner flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
-          <RefreshCw className="w-4 h-4 text-zinc-400" />
-        </button>
       </div>
 
       {/* Header Tabs */}
@@ -389,33 +422,43 @@ const Kurumsal = ({ akdData }: { akdData: any }) => {
         <button onClick={() => setTab('satanlar')} className={`flex-1 pb-3 text-[14px] font-bold border-b-2 transition-colors ${tab === 'satanlar' ? 'border-[#ff3b30] text-[#ff3b30] bg-[#ff3b30]/[0.05] rounded-t-xl pt-2' : 'border-white/5 text-zinc-500 pt-2'}`}>
           Satanlar
         </button>
-        <button onClick={() => setTab('toplam')} className={`flex-1 pb-3 text-[14px] font-bold border-b-2 transition-colors ${tab === 'toplam' ? 'border-white text-white bg-white/[0.05] rounded-t-xl pt-2' : 'border-white/5 text-zinc-500 pt-2'}`}>
-          Toplam
+        <button onClick={() => setTab('toplam')} className={`flex-1 pb-3 text-[14px] font-bold border-b-2 transition-colors ${tab === 'toplam' ? 'border-zinc-100 text-zinc-100 bg-white/[0.05] rounded-t-xl pt-2' : 'border-white/5 text-zinc-500 pt-2'}`}>
+          Diğer
         </button>
       </div>
 
-      <div className="px-4 py-2 mt-1 pb-10">
-        {(!akdData || akdData.error) ? (
-          <div className="flex flex-col items-center justify-center pt-20 text-center px-6">
-            <Activity className="w-12 h-12 text-zinc-800 mb-4" />
-            <div className="text-zinc-500 font-medium">Bu sembol için AKD verisi şu an mevcut değil.</div>
+      <div className="px-4 py-2 mt-1">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center pt-20">
+            <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin mb-3" />
+            <div className="text-zinc-500 font-medium">Veriler çekiliyor...</div>
           </div>
         ) : (
-          tab === 'toplam' ? (
-            akdData?.total?.map((t: any, i: number) => (
-              <div key={i} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0 px-1">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#111114] flex items-center justify-center border border-white/5 text-[10px] font-bold text-zinc-400">{t.kurum.substring(0, 2)}</div>
-                  <span className="font-bold text-zinc-200">{t.kurum}</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-mono font-bold text-[#00ff88]" style={{ color: t.color }}>{t.lot}</div>
-                  <div className="text-[10px] text-zinc-500 uppercase font-bold">{t.type}</div>
+          (!akdData || akdData.error || (!akdData.buyers && !akdData.sellers)) ? (
+            <div className="flex flex-col items-center justify-center pt-20 text-center px-6">
+              <Activity className="w-12 h-12 text-zinc-800 mb-4" />
+              <div className="text-zinc-500 font-medium">Bu sembol için AKD verisi şu an mevcut değil. Lütfen başka bir sembol deneyin.</div>
+            </div>
+          ) : (
+            tab === 'toplam' ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                  <h4 className="text-[11px] font-bold text-zinc-500 uppercase mb-3">İşlem Özeti</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-[10px] text-zinc-600 font-bold uppercase">Kaynak</div>
+                      <div className="text-[13px] font-bold text-zinc-300">{akdData.source}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-zinc-600 font-bold uppercase">Durum</div>
+                      <div className="text-[13px] font-bold text-[#00ff88]">{akdData.status}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ))
-          ) : (
-            (tab === 'alanlar' ? akdData?.buyers : akdData?.sellers)?.map((b: any, i: number) => generateBrokerRow(b, i, tab === 'satanlar'))
+            ) : (
+              (tab === 'alanlar' ? akdData?.buyers : akdData?.sellers)?.map((b: any, i: number) => generateBrokerRow(b, i, tab === 'satanlar'))
+            )
           )
         )}
       </div>

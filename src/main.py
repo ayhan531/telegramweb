@@ -379,6 +379,11 @@ def get_db_connection():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # Eksik kolon varsa ekle (is_active kontrolü)
+    try:
+        conn.execute("ALTER TABLE alarms ADD COLUMN is_active INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass # Zaten varsa hata verir, geçebiliriz
     conn.commit()
     return conn
 

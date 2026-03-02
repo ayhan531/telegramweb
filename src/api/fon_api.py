@@ -36,8 +36,8 @@ if __name__ == "__main__":
     sys.stderr = open(os.devnull, 'w')
     
     try:
-        etf_list = ['GLDTR', 'USDTR', 'GUMUS', 'ZRE20', 'KCHOL']
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        etf_list = ['GLDTR', 'USDTR', 'GUMUS', 'ZRE20', 'KCHOL', 'THYAO', 'EREGL', 'ASELS', 'YKBNK', 'ISCTR']
+        with ThreadPoolExecutor(max_workers=10) as executor:
             funds = list(executor.map(get_fon_data, etf_list))
         
         funds = [f for f in funds if f is not None]

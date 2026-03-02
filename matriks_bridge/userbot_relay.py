@@ -1,9 +1,9 @@
 """
-USERBOT RELAY v5 (PRIMARY: b0pt_bot)
-=====================================
-- b0pt_bot: ANA KAYNAK (AKD, Derinlik, Analiz, Takas vb.)
-- ucretsizderinlikbot: YEDEK KAYNAK.
-- Her iki bot birbirinin yedeği (fallback) olarak çalışır.
+USERBOT RELAY v7 (PHOTO-ONLY FOR DERINLIK/AKD)
+==============================================
+- ucretsizderinlikbot: 1. Sırada (Derinlik fotoğrafı için en iyisi)
+- b0pt_bot: 2. Sırada (Güçlü yedek)
+- Metin cevapları derinlik/akd için reddedilir, fotoğraf gelene kadar botlar taranır.
 """
 
 import asyncio
@@ -15,7 +15,6 @@ from aiohttp import web
 from telethon import TelegramClient
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 
-# Fotoğraf markalama modülünü içe aktar
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from image_brander import brand_image
 
@@ -23,73 +22,122 @@ API_ID   = 37031232
 API_HASH = "518b15f17950300182c1edf6921e7c92"
 SESSION  = os.path.join(os.path.dirname(__file__), "akd_scraper_session")
 
-# Hedef botlar
-PRIMARY_BOT  = "b0pt_bot"
-FALLBACK_BOT = "ucretsizderinlikbot"
-PORT         = 8765
+# GÜNCELLENMİŞ ÖNCELİK LİSTELERİ
+BOT_GROUPS = {
+    "default": ["ucretsizderinlikbot", "hisseyorumbot", "b0pt_bot", "xFinans_bot"],
+    # Analizler için hisseyorumbot 1. sırada çünkü daha tutarlı veriler veriyor
+    "analysis": ["hisseyorumbot", "b0pt_bot", "xFinans_bot"],
+    "depth": ["ucretsizderinlikbot", "hisseyorumbot", "b0pt_bot"]
+}
+
+PORT = 8765
 
 query_lock = asyncio.Lock()
 client = TelegramClient(SESSION, API_ID, API_HASH)
 
-async def relay_query(command: str, period: str = None, target_bot: str = PRIMARY_BOT) -> dict:
-    """Komutu gönderir, cevap alamazsa diğer botu dener."""
+async def relay_query(command: str, period: str = None, force_photo: bool = False, group: str = "default") -> dict:
+    """Sırayla tüm botları dener, başarılı olan ilk sonucu döner."""
     async with query_lock:
-        # Önce tercih edilen botu dene
-        result = await _execute_query(command, period, target_bot)
-        
-        # Eğer hata varsa veya cevap yoksa diğer botu dene
-        if result["type"] == "error":
-            fallback = FALLBACK_BOT if target_bot == PRIMARY_BOT else PRIMARY_BOT
-            print(f"  ⚠️ {target_bot} başarısız, {fallback} deneniyor...")
-            result = await _execute_query(command, period, fallback)
+        bot_list = BOT_GROUPS.get(group, BOT_GROUPS["default"])
+        for bot in bot_list:
+            print(f"\n🔍 Sorgulanıyor: @{bot} | Komut: {command}")
+            result = await _execute_query(command, period, bot)
             
-        return result
+            # Eğer fotoğraf lazımsa ama metin geldiyse pas geç, diğer bota bak
+            if force_photo and result["type"] != "photo":
+                print(f"⚠️ @{bot} metin verdi, fotoğraf bekleniyor. Diğer bota geçiliyor...")
+                continue
+                
+            if result["type"] != "error":
+                return result
+            
+        return {"type": "error", "data": "Hiçbir bot uygun veri dönmedi."}
 
 async def _execute_query(command: str, period: str, target: str) -> dict:
     try:
-        if not client.is_connected():
-            await client.connect()
-            
+        if not client.is_connected(): await client.connect()
         me = await client.get_me()
         me_id = me.id
 
-        print(f"[{time.strftime('%H:%M:%S')}] --> {target}: {command}")
-        await client.send_message(target, command)
+        # Önceki en son mesajın ID'sini al (Sadece yeni mesajları yakalamak için)
+        last_msgs = await client.get_messages(target, limit=1)
+        last_id = last_msgs[0].id if last_msgs else 0
+
+        actual_cmd = command
+        # Botlara göre komut düzeltmeleri
+        if "sirketkarti" in actual_cmd:
+            if target == "b0pt_bot": actual_cmd = actual_cmd.replace("sirketkarti", "sirketkartı")
+            if target == "hisseyorumbot": actual_cmd = actual_cmd.replace("/sirketkarti", "/sirket")
+        
+        if target == "hisseyorumbot" and "tum" in actual_cmd:
+            actual_cmd = actual_cmd.replace("/tum", "/rapor")
+
+        print(f"[{time.strftime('%H:%M:%S')}] --> @{target}: {actual_cmd} (Last ID: {last_id})")
+        await client.send_message(target, actual_cmd)
 
         bot_msg = None
-        for attempt in range(12):
+        # Max 20 saniye bekle (Bazı botlar yavaş olabilir)
+        for attempt in range(20):
             await asyncio.sleep(1.0)
-            messages = await client.get_messages(target, limit=3)
+            # SADECE komutumuzdan sonra gelen mesajlara bak (id > last_id)
+            messages = await client.get_messages(target, limit=5)
             for msg in messages:
-                if msg.sender_id != me_id:
+                if msg.sender_id == me_id: continue
+                if msg.id <= last_id: continue # Eski mesajları/reklamları atla
+                
+                # --- REKLAM / AD FİLTRESİ ---
+                msg_content = (msg.text or "").lower()
+                if msg.media and hasattr(msg.media, 'caption') and msg.media.caption:
+                    msg_content += " " + msg.media.caption.lower()
+                
+                is_ad = any(k in msg_content for k in ["best brands", "reklam", "sponsor", "t.me/", "satın al"])
+                has_symbol = symbol.lower() in msg_content if symbol else False
+                
+                if is_ad and not has_symbol:
+                    print(f"🚫 Reklam engellendi (ID: {msg.id})")
+                    continue
+
+                # Fotoğraf yakalama (Öncelikli)
+                if msg.media and isinstance(msg.media, (MessageMediaPhoto, MessageMediaDocument)):
                     bot_msg = msg
                     break
-            if bot_msg: break
+                
+                # Eğer daha önce fotoğraf bulamadıysak ve uzun/alakalı bir metin varsa al
+                if not bot_msg and msg.text and len(msg.text) > 40:
+                    if "bekle" not in msg.text.lower() and "hazırlanıyor" not in msg.text.lower():
+                        bot_msg = msg
+            
+            if bot_msg and hasattr(bot_msg, 'media') and bot_msg.media:
+                break
 
         if not bot_msg:
-            return {"type": "error", "data": "Cevap alınamadı."}
+            return {"type": "error", "data": "Cevap alınamadı veya çok yavaş."}
 
-        # Periyot Butonları (Eğer varsa tıkla)
+        # Periyot Tıklama (AKD için)
         if period and bot_msg.buttons:
             found_btn = False
             for row in bot_msg.buttons:
                 for btn in row:
-                    if period.lower() in btn.text.lower() or btn.text.lower() in period.lower():
+                    if period.lower() in btn.text.lower():
                         await btn.click()
                         found_btn = True
                         break
                 if found_btn: break
-                
+            
             if found_btn:
-                await asyncio.sleep(4)
-                # Güncel mesajı al
-                msgs = await client.get_messages(target, limit=3)
-                for m in msgs:
-                    if m.sender_id != me_id and m.media:
-                        bot_msg = m
-                        break
+                # Buton ID'sini kaydet
+                btn_click_id = bot_msg.id
+                for a in range(10):
+                    await asyncio.sleep(1.5)
+                    msgs = await client.get_messages(target, limit=5)
+                    for m in msgs:
+                        # Buton tıklamasından sonra gelen YENİ fotoğrafı bekle
+                        if m.sender_id != me_id and m.id >= btn_click_id and m.media:
+                            bot_msg = m
+                            break
+                    if bot_msg.media: break
 
-        # Fotoğraf işleme
+        # Çıktı Üretme
         if bot_msg.media and isinstance(bot_msg.media, (MessageMediaPhoto, MessageMediaDocument)):
             buf = io.BytesIO()
             await client.download_media(bot_msg, file=buf)
@@ -98,73 +146,60 @@ async def _execute_query(command: str, period: str, target: str) -> dict:
         
         if bot_msg.text:
             return {"type": "text", "data": bot_msg.text}
-
+            
         return {"type": "error", "data": "Beklenen formatta veri gelmedi."}
 
     except Exception as e:
         return {"type": "error", "data": str(e)}
 
-# --- HTTP Handlers ---
-
+# --- Sunucu Handlerları ---
 async def handle_akd(request):
     symbol = request.match_info.get("symbol", "").upper()
     period = request.query.get("period")
-    result = await relay_query(f"/akd {symbol}", period=period)
+    result = await relay_query(f"/akd {symbol}", period=period, force_photo=True, group="default")
     return prepare_response(result, symbol, f"AKD ({period or 'Günlük'})")
 
 async def handle_derinlik(request):
     symbol = request.match_info.get("symbol", "").upper()
-    result = await relay_query(f"/derinlik {symbol}")
+    result = await relay_query(f"/derinlik {symbol}", force_photo=True, group="default")
     return prepare_response(result, symbol, "25 Kademe Derinlik")
 
 async def handle_cmd(request):
     cmd = request.match_info.get("cmd", "")
     symbol = request.match_info.get("symbol", "").upper()
-    result = await relay_query(f"/{cmd} {symbol}")
     
-    titles = {
-        "islem": "Anlık İşlemler",
-        "teorik": "Teorik Eşleşme",
-        "takas": "Takas Analizi",
-        "sirketkarti": "Şirket Bilgi Kartı",
-        "detay": "Hisse Detayları",
-        "tum": "Toplu Analiz"
-    }
-    return prepare_response(result, symbol, titles.get(cmd, cmd.capitalize()))
+    # Aracı kurum dağılımı gibi foto odaklı komutlar
+    photo_required = cmd in ["islem", "teorik", "takas", "tum"]
+    # Takas, Detay, Şirket Kartı gibi komutları derinlik botundan istemiyoruz çünkü yanlış/eksik veriyor
+    group = "analysis" if cmd in ["takas", "sirketkarti", "detay", "tum", "teorik"] else "default"
+    
+    result = await relay_query(f"/{cmd} {symbol}", force_photo=photo_required, group=group)
+    
+    titles = {"islem":"İşlemler","teorik":"Teorik","takas":"Takas","sirketkarti":"Şirket Kartı","detay":"Detay","tum":"Rapor"}
+    return prepare_response(result, symbol, titles.get(cmd, cmd.upper()))
 
 def prepare_response(result, symbol, title):
     if result["type"] == "photo":
+        from image_brander import brand_image
         branded = brand_image(result["data"], symbol=symbol, data_type=title)
         return web.Response(body=branded, content_type="image/jpeg")
     elif result["type"] == "text":
         return web.json_response({"text": result["data"]})
     else:
-        return web.json_response({"error": result["data"]}, status=502)
+        return web.json_response({"error": result.get("data", "Hata")}, status=502)
 
-async def handle_health(request):
-    try:
-        me = await client.get_me() if client.is_connected() else None
-        return web.json_response({"status": "ok", "account": me.first_name if me else "disconnected"})
-    except:
-        return web.json_response({"status": "error"}, status=500)
-
-async def start_relay():
+async def main():
     await client.start()
     app = web.Application()
     app.router.add_get("/akd/{symbol}", handle_akd)
     app.router.add_get("/derinlik/{symbol}", handle_derinlik)
     app.router.add_get("/cmd/{cmd}/{symbol}", handle_cmd)
-    app.router.add_get("/health", handle_health)
-    
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "127.0.0.1", PORT)
-    await site.start()
-    print(f"🚀 Relay Aktif (Primary Bot: @{PRIMARY_BOT}): http://127.0.0.1:{PORT}")
+    await web.TCPSite(runner, "127.0.0.1", PORT).start()
+    print(f"🚀 DERİNLİK RELAY v8 AKTİF → http://127.0.0.1:{PORT}")
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(start_relay())
-    except KeyboardInterrupt:
-        print("\nKapatılıyor...")
+    asyncio.run(main())
+

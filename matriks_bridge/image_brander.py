@@ -38,14 +38,35 @@ def _load_font(size: int):
     return ImageFont.load_default()
 
 
+def _clean_watermark(img: Image.Image) -> Image.Image:
+    """
+    Arka plandaki sinsi gri logoları temizler.
+    Eşiği 125'e çıkarıyoruz; böylece sönük olan her şey (logo dahil) arka plan rengine döner.
+    Sadece gerçek veriler (parlak yazılar) kalır.
+    """
+    img = img.convert("RGB")
+    # RGB toplamı bazlı gelişmiş filtre
+    data = img.getdata()
+    new_data = []
+    bg_color = (10, 10, 14)
+    threshold = 125
+    
+    for item in data:
+        # Luma (parlaklık) kontrolü: (R+G+B)/3
+        if (item[0] + item[1] + item[2]) // 3 < threshold:
+            new_data.append(bg_color)
+        else:
+            new_data.append(item)
+            
+    img.putdata(new_data)
+    return img
+
 def brand_image(raw_bytes: bytes, symbol: str = "", data_type: str = "AKD") -> bytes:
-    """
-    Parametre olarak aldığı ham JPEG/PNG byte'larını işler:
-    1. Hedef botun watermark/link satırlarını kapatır
-    2. Kendi başlık ve alt bilgimizi ekler
-    3. Sonucu JPEG byte dizisi olarak döndürür
-    """
     img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+    
+    # ── 0) Arka Plan Temizliği (Gri logoları %100 sil) ──
+    img = _clean_watermark(img)
+    
     w, h = img.size
     draw = ImageDraw.Draw(img)
 
@@ -54,11 +75,13 @@ def brand_image(raw_bytes: bytes, symbol: str = "", data_type: str = "AKD") -> b
     font_sub    = _load_font(max(10, w // 44))
     font_brand  = _load_font(max(11, w // 38))
 
-    # ── 1) Kaynak botu gizle: üstteki watermark bölgesini kapat ──
-    # Hedef botun fotoğrafında üst bölümde sembol ismi, link ve kaynak bilgisi bulunur.
-    # Tamamını bir dikdörtgenle örteceğiz.
-    cover_top_h = int(h * 0.22)   # üst %22'yi kapat (kaynak bot metni)
-    draw.rectangle([(0, 0), (w, cover_top_h)], fill=COVER_COLOR)
+    # ── 1) Kaynak botu gizle: SADECE ÜST LOGO VE ALT LİNKİ KAPAT ──
+    # Üst Bölgeyi kapat (Sadece en üstteki logo/başlık alanı)
+    # h*0.15 yeterlidir, fazlası tabloyu kapatır.
+    draw.rectangle([(0, 0), (w, int(h * 0.15))], fill=COVER_COLOR)
+
+    # Alt taraftaki sinsi linkleri kapat (Sadece en dipteki küçük alan)
+    draw.rectangle([(0, int(h*0.93)), (w, h)], fill=COVER_COLOR)
 
     # ── 2) Kendi başlık çubuğumuzu ekle ─────────────────────────────
     bar_h = int(h * 0.13)
@@ -74,7 +97,7 @@ def brand_image(raw_bytes: bytes, symbol: str = "", data_type: str = "AKD") -> b
     brand_w = brand_bbox[2] - brand_bbox[0]
     draw.text((w - brand_w - 16, 8), BRAND_NAME, font=font_brand, fill=BRAND_TEXT_CLR)
 
-    # ── 3) Sol dikey şerit (ince çizgi) ─────────────────────────
+    # ── 3) Sol dikey şerit ──────────────────────────────────────
     draw.rectangle([(0, 0), (3, h)], fill=BRAND_COLOR)
 
     # ── 4) Alt bilgi çubuğu ─────────────────────────────────────
@@ -87,8 +110,8 @@ def brand_image(raw_bytes: bytes, symbol: str = "", data_type: str = "AKD") -> b
     sub_y = h - footer_h + (footer_h - (sub_bbox[3] - sub_bbox[1])) // 2
     draw.text(((w - sub_w) // 2, sub_y), BRAND_SUBTITLE, font=font_sub, fill=(140, 140, 150))
 
-    # ── 5) Çıkış: JPEG olarak sıkıştır ──────────────────────────
+    # ── 5) Çıkış: JPEG ──────────────────────────────────────────
     out = io.BytesIO()
-    img.save(out, format="JPEG", quality=92)
+    img.save(out, format="JPEG", quality=95)
     out.seek(0)
     return out.read()
