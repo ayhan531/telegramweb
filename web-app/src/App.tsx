@@ -91,7 +91,7 @@ const App: React.FC = () => {
       case 'kurumsal': return <Kurumsal akdData={akdData} />;
       case 'bulten': return bultenLoading ? <LoadingView label="Bülten hazırlanıyor..." /> : <Bulten data={bultenData} user={user} />;
       case 'fon': return fonLoading ? <LoadingView label="Fonlar listeleniyor..." /> : <Fon data={fonData} />;
-      case 'diger': return <Diger bultenData={bultenData} />;
+      case 'diger': return <Diger />;
       default: return <Anasayfa user={user} bultenData={bultenData} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
     }
   };
@@ -458,7 +458,7 @@ const Kurumsal = ({ akdData: initialAkdData }: { akdData: any }) => {
             <div className="text-zinc-500 font-medium">Veriler çekiliyor...</div>
           </div>
         ) : (
-          (!akdData || akdData.error || (!akdData.buyers && !akdData.sellers)) ? (
+          (!akdData || akdData.error || (akdData.buyers?.length === 0 && akdData.sellers?.length === 0)) ? (
             <div className="flex flex-col items-center justify-center pt-20 text-center px-6">
               <Activity className="w-12 h-12 text-zinc-800 mb-4" />
               <div className="text-zinc-500 font-medium">Bu sembol için AKD verisi şu an mevcut değil. Lütfen başka bir sembol deneyin.</div>
@@ -556,7 +556,7 @@ const MarketSection = ({ title, data }: any) => (
 );
 
 // 4. DIGER
-const Diger = ({ bultenData }: { bultenData: any }) => {
+const Diger = () => {
   const [selectedSubView, setSelectedSubView] = useState<string | null>(null);
 
   const handleMenuItemClick = (view: string) => {
@@ -568,7 +568,7 @@ const Diger = ({ bultenData }: { bultenData: any }) => {
   };
 
   if (selectedSubView) {
-    return <SubViewDetail view={selectedSubView} onBack={handleBack} bultenData={bultenData} />;
+    return <SubViewDetail view={selectedSubView} onBack={handleBack} />;
   }
 
   return (
@@ -897,7 +897,7 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
 };
 
 // ======================== SUB VIEW DETAIL ========================
-const SubViewDetail = ({ view, onBack, bultenData }: { view: string, onBack: () => void, bultenData: any }) => {
+const SubViewDetail = ({ view, onBack }: { view: string, onBack: () => void }) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -907,6 +907,7 @@ const SubViewDetail = ({ view, onBack, bultenData }: { view: string, onBack: () 
     else if (view === 'AKD Tarama') category = 'akd';
     else if (view === 'KAP Ajan') category = 'kap';
     else if (view === 'Takas Tarama') category = 'takas';
+    else if (view === 'Hisse Radar') category = 'radar';
 
     if (category) {
       setLoading(true);
@@ -941,31 +942,20 @@ const SubViewDetail = ({ view, onBack, bultenData }: { view: string, onBack: () 
                 <div className="p-4 bg-[#111114] border border-white/5 rounded-2xl">
                   <h4 className="font-bold mb-4 flex items-center gap-2">
                     <Activity className="w-4 h-4 text-cyan-400" />
-                    Popüler Taramalar (Canlı)
+                    Radar - Günün Raporu (Analiz)
                   </h4>
-                  <div className="space-y-6">
-                    <div>
-                      <div className="text-[12px] font-bold text-zinc-500 mb-3 uppercase tracking-wider">Günün Yıldızları</div>
-                      <div className="grid grid-cols-1 gap-2">
-                        {bultenData?.gainers?.slice(0, 3).map((g: any, i: number) => (
-                          <div key={i} className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/5">
-                            <span className="font-bold">{g.symbol}</span>
-                            <span className="text-[#00ff88] font-bold">{g.change}</span>
+                  <div className="space-y-4">
+                    {data?.map((r: any, i: number) => (
+                      <div key={i} className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                        <div>
+                          <div className="font-bold text-[14px] flex items-center gap-2">
+                            {r.symbol} <span className="text-[10px] font-bold text-zinc-500">• {r.title}</span>
                           </div>
-                        ))}
+                          <div className="text-[11px] text-zinc-500 font-medium">{r.detay}</div>
+                        </div>
+                        <div className="text-[14px] font-black" style={{ color: r.color }}>{r.value}</div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-[12px] font-bold text-zinc-500 mb-3 uppercase tracking-wider">Hacim Artışı</div>
-                      <div className="grid grid-cols-1 gap-2">
-                        {bultenData?.bist_summary?.slice(0, 3).map((s: any, i: number) => (
-                          <div key={i} className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/5">
-                            <span className="font-bold">{s.symbol}</span>
-                            <span className="text-zinc-400 text-xs">{s.price} ₺</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>
