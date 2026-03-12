@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Building2, MoreHorizontal, FileText, Briefcase, Home, Edit2, Star, Activity, ArrowLeft, RefreshCw, ChevronDown, Bell, ArrowUpRight, ArrowDownRight, Copy, Zap } from 'lucide-react';
+import { Search, Building2, MoreHorizontal, Briefcase, Home, Star, Activity, ArrowLeft, RefreshCw, ChevronDown, Bell, ArrowUpRight, ArrowDownRight, Copy, Zap } from 'lucide-react';
 import axios from 'axios';
 import Chart from 'react-apexcharts';
+import logo from './assets/logo.png';
 
 const API_BASE = '/api';
 
@@ -17,6 +18,7 @@ const App: React.FC = () => {
   const [bultenData, setBultenData] = useState<any>(null);
   const [fonData, setFonData] = useState<any>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [alarms, setAlarms] = useState<any[]>([]);
   const [bultenLoading, setBultenLoading] = useState(false);
   const [fonLoading, setFonLoading] = useState(false);
 
@@ -62,8 +64,13 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user?.id) {
       axios.get(`${API_BASE}/favorites/${user.id}`).then(res => setFavorites(res.data)).catch(console.error);
+      axios.get(`${API_BASE}/alarms/${user.id}`).then(res => setAlarms(res.data)).catch(console.error);
     }
   }, [user]);
+
+  const refreshAlarms = () => {
+    if (user?.id) axios.get(`${API_BASE}/alarms/${user.id}`).then(res => setAlarms(res.data)).catch(console.error);
+  };
 
   const toggleFavorite = async (s: string) => {
     if (!user?.id) return;
@@ -83,7 +90,7 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (symbol) {
-      return <SymbolDetail symbol={symbol} favorites={favorites} onToggleFavorite={toggleFavorite} onBack={() => setSymbol('')} />;
+      return <SymbolDetail symbol={symbol} favorites={favorites} onToggleFavorite={toggleFavorite} onBack={() => setSymbol('')} user={user} />;
     }
 
     switch (currentView) {
@@ -92,6 +99,7 @@ const App: React.FC = () => {
       case 'bulten': return bultenLoading ? <LoadingView label="Bülten hazırlanıyor..." /> : <Bulten data={bultenData} user={user} />;
       case 'fon': return fonLoading ? <LoadingView label="Fonlar listeleniyor..." /> : <Fon data={fonData} />;
       case 'diger': return <Diger />;
+      case 'alarm': return <AlarmView user={user} alarms={alarms} onRefresh={refreshAlarms} />;
       default: return <Anasayfa user={user} bultenData={bultenData} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
     }
   };
@@ -103,13 +111,18 @@ const App: React.FC = () => {
       </div>
 
       {!symbol && (
-        <footer className="fixed bottom-4 left-4 right-4 bg-[#0a0a0c] border border-white/10 rounded-[28px] p-2 flex justify-between items-center z-50">
-          <NavButton id="anasayfa" icon={Home} label="Anasayfa" active={currentView === 'anasayfa'} onClick={setCurrentView} />
-          <NavButton id="kurumsal" icon={Building2} label="Kurumsal" active={currentView === 'kurumsal'} onClick={setCurrentView} />
-          <NavButton id="diger" icon={MoreHorizontal} label="Diğer" active={currentView === 'diger'} onClick={setCurrentView} />
-          <NavButton id="bulten" icon={FileText} label="Bülten" active={currentView === 'bulten'} onClick={setCurrentView} />
-          <NavButton id="fon" icon={Briefcase} label="Fon" active={currentView === 'fon'} onClick={setCurrentView} />
-        </footer>
+        <>
+          <footer className="fixed bottom-4 left-4 right-4 bg-[#0a0a0c] border border-white/10 rounded-[28px] p-2 flex justify-between items-center z-50 shadow-2xl shadow-black/50">
+            <NavButton id="anasayfa" icon={Home} label="Anasayfa" active={currentView === 'anasayfa'} onClick={setCurrentView} />
+            <NavButton id="kurumsal" icon={Building2} label="Kurumsal" active={currentView === 'kurumsal'} onClick={setCurrentView} />
+            <NavButton id="diger" icon={MoreHorizontal} label="Diğer" active={currentView === 'diger'} onClick={setCurrentView} />
+            <NavButton id="fon" icon={Briefcase} label="Fon" active={currentView === 'fon'} onClick={setCurrentView} />
+            <NavButton id="alarm" icon={Bell} label="Alarm" active={currentView === 'alarm'} onClick={setCurrentView} badge={alarms.length} />
+          </footer>
+          <div className="fixed bottom-0 left-0 right-0 text-center py-1 bg-black/80 backdrop-blur-sm z-40">
+             <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em]">PARİBU MENKUL DEĞER — PROFESYONEL VERİ TERMİNALİ</span>
+          </div>
+        </>
       )}
     </div>
   );
@@ -127,10 +140,13 @@ const LoadingView = ({ label }: { label: string }) => (
 );
 
 // ======================== NAVIGATION ========================
-const NavButton = ({ id, icon: Icon, label, active, onClick }: any) => (
-  <button onClick={() => onClick(id)} className="flex flex-col items-center flex-1 py-1">
+const NavButton = ({ id, icon: Icon, label, active, onClick, badge }: any) => (
+  <button onClick={() => onClick(id)} className="flex flex-col items-center flex-1 py-1 relative">
     <div className={`p-2.5 rounded-[14px] mb-1 transition-all ${active ? 'bg-[#222226] text-white' : 'text-zinc-500'}`}>
       <Icon className={`w-5 h-5 ${active ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+      {badge > 0 && (
+        <span className="absolute top-0 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">{badge > 9 ? '9+' : badge}</span>
+      )}
     </div>
     <span className={`text-[10px] ${active ? 'font-bold text-white' : 'font-medium text-zinc-500'}`}>{label}</span>
   </button>
@@ -164,7 +180,10 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
     <div className="animate-fade-in animate-duration-200">
       <div className="p-4">
         {/* Search Header */}
-        <form onSubmit={(e) => { e.preventDefault(); if (val) onSearch(val); }} className="flex gap-3 mb-6">
+        <form onSubmit={(e) => { e.preventDefault(); if (val) onSearch(val); }} className="flex gap-3 mb-6 items-center">
+          <div className="w-[46px] h-[46px] flex-shrink-0 rounded-[14px] overflow-hidden border border-white/10">
+            <img src={logo} alt="Logo" className="w-full h-full object-cover" />
+          </div>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
             <input
@@ -176,11 +195,8 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
               className="w-full bg-[#141417] border border-white/5 rounded-2xl py-3 pl-10 pr-4 text-[15px] focus:outline-none focus:border-white/10 text-white placeholder:text-zinc-600 transition-all font-medium"
             />
           </div>
-          <button type="button" className="w-[46px] h-[46px] flex-shrink-0 flex items-center justify-center soft-card-inner">
-            <Edit2 className="w-4 h-4 text-zinc-400" />
-          </button>
-          <div className="w-[46px] h-[46px] flex-shrink-0 rounded-[14px] bg-[#ffffff] text-black flex items-center justify-center font-bold text-lg shadow-sm">
-            {user?.first_name ? user.first_name.charAt(0).toUpperCase() : 'B'}
+          <div className="w-[46px] h-[46px] flex-shrink-0 rounded-[14px] bg-[#222226] text-white flex items-center justify-center font-bold text-lg shadow-sm border border-white/5 uppercase">
+            {user?.first_name ? user.first_name.charAt(0) : 'P'}
           </div>
         </form>
 
@@ -207,7 +223,7 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
         <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 -mx-4 px-4">
           <QuickStat title="ALTIN (GRAM)" value={bultenData?.commodity_summary?.[0]?.price} change={bultenData?.commodity_summary?.[0]?.change} />
           <QuickStat title="BITCOIN" value={bultenData?.crypto_summary?.[0]?.price} change={bultenData?.crypto_summary?.[0]?.change} color="text-orange-400" />
-          <QuickStat title="DOLAR" value={bultenData?.commodity_summary?.[1]?.price || "34,42"} change={bultenData?.commodity_summary?.[1]?.change || "+0.05%"} color="text-cyan-400" />
+          <QuickStat title="DOLAR" value={bultenData?.commodity_summary?.[1]?.price} change={bultenData?.commodity_summary?.[1]?.change} color="text-cyan-400" />
         </div>
       </div>
 
@@ -244,16 +260,16 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
           <h4 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-3">BIST 100 ANALİZ ÖZETİ</h4>
           <div className="grid grid-cols-3 gap-2">
             <div className="text-center">
-              <div className="text-[10px] text-zinc-500 font-bold mb-1">HACİM (MR)</div>
-              <div className="text-[15px] font-black text-white">171.4</div>
+              <div className="text-[10px] text-zinc-500 font-bold mb-1">ENDEKSq</div>
+              <div className="text-[15px] font-black text-white">{bultenData?.price || '---'}</div>
             </div>
             <div className="text-center border-x border-white/5">
-              <div className="text-[10px] text-zinc-500 font-bold mb-1">ADET</div>
-              <div className="text-[15px] font-black text-white">4.8B</div>
+              <div className="text-[10px] text-zinc-500 font-bold mb-1">DEĞİŞİM</div>
+              <div className={`text-[15px] font-black ${bultenData?.change?.includes('+') ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>{bultenData?.change || '---'}</div>
             </div>
             <div className="text-center">
-              <div className="text-[10px] text-zinc-500 font-bold mb-1">GÜNLÜK FARK</div>
-              <div className="text-[15px] font-black text-[#00ff88]">+129.5</div>
+              <div className="text-[10px] text-zinc-500 font-bold mb-1">DURUM</div>
+              <div className={`text-[13px] font-black ${bultenData?.status === 'POZİTİF' ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>{bultenData?.status || '---'}</div>
             </div>
           </div>
         </div>
@@ -609,6 +625,7 @@ const DigerMenuItem = ({ icon: Icon, title, subtitle, onClick }: any) => (
 // 5. FON
 const Fon = ({ data }: { data: any }) => {
   const [val, setVal] = useState('');
+  const [fonCategory, setFonCategory] = useState('Tümü');
 
   const handleSearchKeyPress = (e: React.KeyboardEvent) => {
     // Fon araması sadece filtreleme yaptığı için özel bir aksiyon gerekmez, 
@@ -616,10 +633,18 @@ const Fon = ({ data }: { data: any }) => {
     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
   };
 
-  const filteredFunds = data?.funds?.filter((f: any) =>
-    f.code.toUpperCase().includes(val.toUpperCase()) ||
-    f.name.toUpperCase().includes(val.toUpperCase())
-  ) || [];
+  const fonKeywords: Record<string, string[]> = {
+    'Hisse Senedi': ['hisse', 'portföy', 'thyao', 'eregl', 'akbnk', 'garan', 'sahol'],
+    'Altın': ['altın', 'gold', 'gldtr', 'gumus'],
+  };
+
+  const filteredFunds = data?.funds?.filter((f: any) => {
+    const matchSearch = f.code.toUpperCase().includes(val.toUpperCase()) || f.name.toUpperCase().includes(val.toUpperCase());
+    if (fonCategory === 'Tümü') return matchSearch;
+    const keywords = fonKeywords[fonCategory] || [];
+    const matchCat = keywords.some(k => f.code.toLowerCase().includes(k) || f.name.toLowerCase().includes(k));
+    return matchSearch && matchCat;
+  }) || [];
 
   return (
     <div className="animate-fade-in">
@@ -642,9 +667,14 @@ const Fon = ({ data }: { data: any }) => {
           <h3 className="text-[17px] font-bold text-white p-4 pb-2">Popüler Fonlar</h3>
 
           <div className="flex px-4 py-2 gap-2 overflow-x-auto hide-scrollbar">
-            <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white text-white font-medium text-sm bg-white/10">Tümü</button>
-            <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white/10 text-zinc-400 font-medium text-sm">Hisse Senedi</button>
-            <button className="whitespace-nowrap px-4 py-1.5 rounded-full border border-white/10 text-zinc-400 font-medium text-sm">Altın</button>
+            {['Tümü', 'Hisse Senedi', 'Altın'].map(cat => (
+              <button
+                key={cat}
+                onClick={() => setFonCategory(cat)}
+                className={`whitespace-nowrap px-4 py-1.5 rounded-full font-medium text-sm border transition-all ${fonCategory === cat ? 'bg-white/10 border-white text-white' : 'border-white/10 text-zinc-400'
+                  }`}
+              >{cat}</button>
+            ))}
           </div>
 
           <table className="w-full mt-2">
@@ -688,7 +718,7 @@ const FonRow = ({ code, name, val, color, icon }: any) => (
 
 
 // 6. SYMBOL DETAIL VIEW (Original Derinlik/Takas Logic)
-const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol: string, favorites: string[], onToggleFavorite: (s: string) => void, onBack: () => void }) => {
+const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack, user }: { symbol: string, favorites: string[], onToggleFavorite: (s: string) => void, onBack: () => void, user?: any }) => {
   const [stock, setStock] = useState<any>(null);
   const [akd, setAkd] = useState<any>(null);
   const [takas, setTakas] = useState<any>(null);
@@ -770,28 +800,7 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack }: { symbol:
           </div>
 
           {tab === 'derinlik' && (
-            <div className="premium-card overflow-hidden">
-              <div className="grid grid-cols-2 divide-x divide-white/5">
-                <div className="p-4">
-                  <p className="text-[11px] text-[#10b981] font-black mb-3 flex items-center gap-1"><ArrowDownRight className="w-3.5 h-3.5" /> ALIŞ <span className="text-zinc-600 font-normal ml-auto">Lot</span></p>
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex justify-between items-center mb-2.5">
-                      <span className="text-[13px] font-mono font-medium text-zinc-100">{(285.5 - i * 0.05).toFixed(2)}</span>
-                      <span className="text-[13px] font-mono text-zinc-500">{(Math.random() * 50000).toFixed(0)}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="p-4">
-                  <p className="text-[11px] text-[#ef4444] font-black mb-3 flex items-center gap-1 flex-row-reverse"><ArrowUpRight className="w-3.5 h-3.5" /> SATIŞ <span className="text-zinc-600 font-normal mr-auto">Lot</span></p>
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex justify-between items-center mb-2.5 flex-row-reverse">
-                      <span className="text-[13px] font-mono font-medium text-zinc-100">{(285.55 + i * 0.05).toFixed(2)}</span>
-                      <span className="text-[13px] font-mono text-zinc-500">{(Math.random() * 50000).toFixed(0)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <DerinlikTab symbol={symbol} user={user} />
           )}
 
           {tab === 'akd' && akd && <Kurumsal akdData={akd} />}
@@ -1014,6 +1023,149 @@ const SubViewDetail = ({ view, onBack }: { view: string, onBack: () => void }) =
                 ))}
               </div>
             )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ======================== DERINLIK TAB (Real Data) ========================
+const DerinlikTab = ({ symbol }: { symbol: string, user?: any }) => {
+  const [derinlik, setDerinlik] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    axios.get(`${API_BASE}/derinlik-cache/${symbol}`)
+      .then(res => { setDerinlik(res.data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [symbol]);
+
+  if (loading) return <div className="flex items-center justify-center py-10"><RefreshCw className="w-6 h-6 text-cyan-400 animate-spin" /></div>;
+
+  if (!derinlik || derinlik.error) {
+    return (
+      <div className="premium-card p-5 text-center">
+        <Activity className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+        <div className="text-zinc-500 text-sm font-medium">Derinlik verisi şu an mevcut değil.</div>
+        <div className="text-zinc-600 text-xs mt-1">Matriks Bridge bağlantısı gereklidir.</div>
+      </div>
+    );
+  }
+
+  const bids = derinlik.bids || [];
+  const asks = derinlik.asks || [];
+
+  return (
+    <div className="premium-card overflow-hidden">
+      <div className="flex justify-between items-center px-4 py-3 border-b border-white/5">
+        <span className="text-[11px] font-black text-zinc-500 uppercase tracking-wider">25 Kademe Derinlik</span>
+        <span className="text-[10px] text-zinc-600">{derinlik.age_seconds ? `${derinlik.age_seconds}s önce` : 'Canlı'}</span>
+      </div>
+      <div className="grid grid-cols-2 divide-x divide-white/5">
+        <div className="p-3">
+          <p className="text-[11px] text-[#10b981] font-black mb-3 flex items-center gap-1"><ArrowDownRight className="w-3.5 h-3.5" /> ALIŞ <span className="text-zinc-600 font-normal ml-auto">Lot</span></p>
+          {bids.slice(0, 10).map((b: any, i: number) => (
+            <div key={i} className="flex justify-between items-center mb-2">
+              <span className="text-[12px] font-mono font-medium text-[#10b981]">{b.price}</span>
+              <span className="text-[12px] font-mono text-zinc-400">{b.volume?.toLocaleString('tr-TR')}</span>
+            </div>
+          ))}
+        </div>
+        <div className="p-3">
+          <p className="text-[11px] text-[#ef4444] font-black mb-3 flex items-center gap-1 flex-row-reverse"><ArrowUpRight className="w-3.5 h-3.5" /> SATIŞ <span className="text-zinc-600 font-normal mr-auto">Lot</span></p>
+          {asks.slice(0, 10).map((a: any, i: number) => (
+            <div key={i} className="flex justify-between items-center mb-2 flex-row-reverse">
+              <span className="text-[12px] font-mono font-medium text-[#ef4444]">{a.price}</span>
+              <span className="text-[12px] font-mono text-zinc-400">{a.volume?.toLocaleString('tr-TR')}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ======================== ALARM VIEW ========================
+const AlarmView = ({ user, alarms, onRefresh }: { user: any, alarms: any[], onRefresh: () => void }) => {
+  const [symbol, setSymbol] = useState('');
+  const [price, setPrice] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!symbol || !price || !user?.id) return;
+    setAdding(true);
+    try {
+      const stockRes = await axios.get(`${API_BASE}/stock/${symbol.toUpperCase()}`);
+      const currentPrice = stockRes.data?.price || 0;
+      const targetPrice = parseFloat(price.replace(',', '.'));
+      const condition = targetPrice > currentPrice ? 'ABOVE' : 'BELOW';
+      await axios.post(`${API_BASE}/alarms`, { userId: user.id, symbol: symbol.toUpperCase(), targetPrice, condition });
+      setSymbol(''); setPrice('');
+      onRefresh();
+    } catch (err) { console.error(err); }
+    setAdding(false);
+  };
+
+  const handleDelete = async (alarmId: number) => {
+    try {
+      await axios.delete(`${API_BASE}/alarms/${alarmId}`, { data: { userId: user?.id } });
+      onRefresh();
+    } catch (err) { console.error(err); }
+  };
+
+  return (
+    <div className="animate-fade-in pb-20">
+      <div className="flex items-center gap-3 p-4 border-b border-white/5">
+        <Bell className="w-5 h-5 text-orange-400" />
+        <span className="font-bold text-[17px]">Fiyat Alarmları</span>
+      </div>
+
+      <div className="p-4">
+        <form onSubmit={handleAdd} className="soft-card p-4 mb-4">
+          <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-3">Yeni Alarm Kur</h3>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text" placeholder="Sembol (THYAO)" value={symbol}
+              onChange={e => setSymbol(e.target.value.toUpperCase())}
+              className="flex-1 soft-card-inner py-2.5 px-3 text-[14px] focus:outline-none text-white font-mono font-bold uppercase"
+            />
+            <input
+              type="text" placeholder="Fiyat (275.50)" value={price}
+              onChange={e => setPrice(e.target.value)}
+              className="flex-1 soft-card-inner py-2.5 px-3 text-[14px] focus:outline-none text-white font-mono"
+            />
+          </div>
+          <button type="submit" disabled={adding || !symbol || !price}
+            className="w-full py-2.5 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 font-bold text-[13px] active:scale-[0.98] transition-all disabled:opacity-50"
+          >{adding ? 'Kuruluyor...' : '🔔 Alarm Kur'}</button>
+        </form>
+
+        {alarms.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Bell className="w-14 h-14 text-zinc-800 mb-4" strokeWidth={1} />
+            <h3 className="text-[16px] font-bold">Aktif Alarmınız Yok</h3>
+            <p className="text-zinc-500 text-[13px] mt-2">Yukarıdan hisse fiyat alarmı kurabilirsiniz.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-3">Aktif Alarmlar ({alarms.length})</div>
+            {alarms.map((a: any) => (
+              <div key={a.id} className="soft-card p-4 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-[15px]">{a.symbol}</span>
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${a.condition === 'ABOVE' ? 'bg-[#00ff88]/10 text-[#00ff88] border-[#00ff88]/20' : 'bg-[#ff3b30]/10 text-[#ff3b30] border-[#ff3b30]/20'}`}>
+                      {a.condition === 'ABOVE' ? '▲ Üstüne' : '▼ Altına'}
+                    </span>
+                  </div>
+                  <div className="text-[13px] font-mono text-zinc-300 mt-0.5">{a.target_price} ₺</div>
+                </div>
+                <button onClick={() => handleDelete(a.id)} className="w-8 h-8 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center text-lg font-bold">×</button>
+              </div>
+            ))}
           </div>
         )}
       </div>
