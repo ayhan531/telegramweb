@@ -1,32 +1,49 @@
-# Ücretsiz Derinlik Botu (Clone)
+# PARİBU MENKUL DEĞER — Profesyonel Veri Terminali
 
-Bu proje, `@ucretsizderinlikbot` Telegram botunun temel özelliklerini (derinlik özeti ve grafik) taklit eden bir Python uygulamasıdır.
+Bu proje, Borsa İstanbul (BIST) verilerini anlık olarak takip eden, teknik analiz ve aracı kurum dağılımı (AKD) raporları sunan profesyonel bir veri terminali botudur.
 
-## Özellikler
-- **Hisse Derinlik Özeti:** Anlık fiyat, günlük değişim, hacim ve gün içi en düşük/en yüksek değerler.
-- **Teknik Grafikler:** Son 1 aya ait fiyat hareketlerini gösteren görsel grafikler.
-- **BIST Desteği:** Borsa İstanbul hisseleri için otomatik `.IS` son eki desteği.
+## ▣ Öne Çıkan Özellikler
 
-## Kurulum
+### ◉ Veri Terminali
+- **Hisse Radar:** Günün hacim patlaması yapan ve trende giren hisselerini otomatik analiz eder.
+- **Teknik Tarama:** RSI, MACD ve Hareketli Ortalamalar (EMA/SMA) bazlı anlık teknik analiz sunar.
+- **AKD Tarama:** Hangi kurumun hangi hissede alıcı veya satıcı olduğunu gösteren anlık aracı kurum dağılımı.
+- **Takas Tarama:** MKK verileriyle ana saklamacı kurumların pay değişimlerini takip eder.
+- **KAP Ajan:** Borsaya düşen KAP bildirimlerini saniyeler içinde analiz ederek kullanıcıya ulaştırır.
 
-1. Gerekli kütüphaneleri yükleyin:
+### ■ Matriks Canlı Terminal (Entegre)
+- **25 Kademe Derinlik:** MatriksIQ üzerinden canlı derinlik tablosu yakalama.
+- **Aracı Kurum Dağılımı:** F3 kısayolu ile anlık canlı AKD görüntüsü.
+- **Zaman ve Satış:** Canlı işlem akışı.
+- **Teorik Eşleşme:** Açılış ve kapanış seanslarında teorik fiyat hesaplaması.
+- **Teknik Grafik:** Canlı ve gelişmiş teknik grafik ekran görüntüleri.
+
+## ◈ Kurulum ve Başlatma
+
+1. Gerekli bağımlılıkları yükleyin:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. `.env` dosyasını düzenleyin:
-   - `TELEGRAM_BOT_TOKEN` kısmına @BotFather'dan aldığınız token'ı yapıştırın.
+2. `.env` yapılandırmasını yapın:
+   - `TELEGRAM_BOT_TOKEN`: @BotFather'dan alınan API anahtarı.
 
-3. Botu çalıştırın:
+3. Sistemi başlatın:
    ```bash
    python src/main.py
    ```
 
-## Komutlar
-- `/start` - Botu başlatır ve hoş geldin mesajı gönderir.
-- `/derinlik HISSE` - Belirtilen hissenin derinlik özetini getirir. (Örn: `/derinlik THYAO`)
-- `/grafik HISSE` - Belirtilen hissenin 1 aylık grafiğini gönderir.
-- `/yardim` - Kullanım kılavuzunu gösterir.
+## ▣ Komut Seti
 
-## Not
-Ücretsiz veri kaynakları (yfinance) kullanıldığı için veriler yaklaşık 15 dakika gecikmeli olabilir.
+| Komut | Açıklama |
+|-------|----------|
+| `/radar` | BIST Günlük Fırsatlar ve Hacim Analizi |
+| `/teknik` | Hızlı indikatör taraması (Örn: `/teknik THYAO`) |
+| `/akdtara` | Kurum Alım/Satım odaklı AKD taraması |
+| `/takastara` | Takas ve Saklama verileri analizi |
+| `/kap` | Son dakika KAP bildirimleri |
+| `/derinlik` | [Matriks] 25 Kademe Derinlik Tablosu |
+| `/grafik` | [Matriks] Canlı Teknik Grafik |
+
+---
+_© 2026 PARİBU MENKUL DEĞER. Tüm hakları saklıdır._
