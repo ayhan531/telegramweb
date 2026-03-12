@@ -167,9 +167,10 @@ def _run_scanner(cmd: str, symbol: str | None = None) -> list:
             "TAKAS":  "get_takas_tarama",
             "KAP":    "get_kap_ajan",
             "SINGLE": "calculate_single_indicators",
+            "SEARCH": "get_comprehensive_report",
         }
         fn = getattr(mod, fn_map[cmd])
-        if cmd in ("KAP", "SINGLE") and symbol:
+        if cmd in ("KAP", "SINGLE", "SEARCH") and symbol:
             return fn(symbol)
         return fn()
     except Exception as e:
@@ -315,6 +316,58 @@ async def cmd_kap(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n\n".join(lines), parse_mode='Markdown')
 
 
+# ─── /sorgu ───────────────────────────────────────────────────────────────────
+# ─── /sorgu (Sembol Arama) ──────────────────────────────────────────────────
+async def cmd_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    symbol = context.args[0].upper() if context.args else None
+    if not symbol:
+        await update.message.reply_text(f"{header('err', 'Arama Hatası')}\n\n{I['err']} Kullanım: `/sorgu THYAO`\n\n{footer_block()}", parse_mode='Markdown')
+        return
+
+    msg = await update.message.reply_text(
+        f"{header('terminal', f'Sorgu: {symbol}')}\n\n{I['load']}  Piyasa verileri toplanıyor...\n\n{footer_block()}",
+        parse_mode='Markdown'
+    )
+    
+    data = await run_in_thread("SEARCH", symbol)
+    if not data or "error" in data:
+        await msg.edit_text(f"{header('err', symbol)}\n\n{I['err']}  Sembol bulunamadı veya veri alınamadı.\n\n{footer_block()}", parse_mode='Markdown')
+        return
+
+    # Raporu oluştur
+    tech = data.get('tech', {})
+    live = data.get('live', {})
+    news = data.get('news', [])
+
+    lines = [f"{header('terminal', f'Terminal Özeti — {symbol}')}\n"]
+    
+    # Canlı Fiyat (Bigpara)
+    if live and live.get('price'):
+        change = live.get('change', 0)
+        change_icon = I['up'] if change > 0 else (I['down'] if change < 0 else I['neutral'])
+        lines.append(f"{change_icon}  *Anlık Fiyat:* `{live.get('price')} ₺`  (`%{change}`)")
+    elif tech and tech.get('price'):
+        lines.append(f"{I['ok']}  *Fiyat:* `{tech.get('price'):,.2f} ₺`")
+    else:
+        lines.append(f"{I['err']}  *Fiyat:* `Veri Alınamadı`")
+
+    # Teknik Göstergeler
+    if tech and not tech.get('error'):
+        lines.append(f"{I['teknik']}  *RSI (14):* `{tech.get('rsi','?')}`")
+        lines.append(f"{I['teknik']}  *Trend:* `{tech.get('moving_averages','?')}`")
+    
+    lines.append(f"\n{I['kap']}  *Son KAP Bildirimleri:*")
+    
+    if news:
+        for n in news[:3]:
+            lines.append(f"  {I['bullet']} `[{n.get('time','--:--')}]` {n.get('title','')[:80]}...")
+    else:
+        lines.append(f"  {I['err']} Son bildirim bulunamadı.")
+
+    lines.append(f"\n{footer_block()}")
+    await msg.edit_text("\n".join(lines), parse_mode='Markdown')
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  /start — Ana Menü
 # ─────────────────────────────────────────────────────────────────────────────
@@ -324,6 +377,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{I['terminal']}  {TAGLINE}\n"
         f"{DIVIDER}\n\n"
         f"*{I['radar']}  VERİ TERMİNALİ*\n\n"
+        f"  {I['terminal']}  `/sorgu`       — Sembol Arama (Örn: `/sorgu THYAO`)\n"
         f"  {I['radar']}  `/radar`       — Hisse Radar — Günün Fırsatları\n"
         f"  {I['teknik']}  `/teknik`      — Teknik Tarama  _(veya: `/teknik THYAO`)_\n"
         f"  {I['akd']}  `/akdtara`     — AKD Tarama — Kurum Alım/Satım\n"
@@ -367,6 +421,7 @@ if __name__ == '__main__':
     # ─── Handler kaydı ────────────────────────────────────────────────────────
     handlers = [
         ("start",      start),
+        ("sorgu",      cmd_search),
         # Veri Terminali
         ("radar",      cmd_radar),
         ("teknik",     cmd_teknik),
@@ -384,10 +439,20 @@ if __name__ == '__main__':
     for name, fn in handlers:
         app.add_handler(CommandHandler(name, fn))
 
+    from telegram.ext import MessageHandler, filters
+    async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        text = update.message.text.upper().strip()
+        if len(text) <= 6 and text.isalnum():
+            context.args = [text]
+            await cmd_search(update, context)
+    
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text))
+
     # ─── Bot komut menüsü ─────────────────────────────────────────────────────
     commands = [
         BotCommand("start",      "Paribu Menkul Değer — Ana Menü"),
-        BotCommand("radar",      "Hisse Radar — Günlük Fırsatlar"),
+        BotCommand("sorgu",      "Sembol Arama (ör: /sorgu THYAO)"),
+        BotCommand("radar",      "Hisse Radar — Günlük Fırsatları"),
         BotCommand("teknik",     "Teknik Tarama (ör: /teknik THYAO)"),
         BotCommand("akdtara",    "AKD Tarama — Kurum Alım/Satım"),
         BotCommand("takastara",  "Takas Tarama — MKK Saklama"),
