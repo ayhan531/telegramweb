@@ -49,7 +49,7 @@ function validateInitData(initData) {
 
 // Basit önbellek (Cache) sistemi
 const cache = {};
-const CACHE_DURATION = 60 * 1000; // 60 saniye
+const CACHE_DURATION = 15 * 1000; // 15 saniyeye düşürüldü (Daha anlık)
 
 async function getCachedExec(command, cacheKey) {
     const now = Date.now();
@@ -113,7 +113,7 @@ async function getCachedExec(command, cacheKey) {
 app.get('/api/stock/:symbol', async (req, res) => {
     const { symbol } = req.params;
     try {
-        const data = await getCachedExec(`python3 api/tv_api.py ${symbol}`, `stock_${symbol}`);
+        const data = await getCachedExec(`python api/tv_api.py ${symbol}`, `stock_${symbol}`);
         res.json(data);
     } catch (error) {
         console.error('Stock API Hatası:', error);
@@ -125,7 +125,7 @@ app.get('/api/stock/:symbol', async (req, res) => {
 app.get('/api/akd/:symbol', async (req, res) => {
     const { symbol } = req.params;
     try {
-        const data = await getCachedExec(`python3 api/real_akd_api.py ${symbol}`, `akd_${symbol}`);
+        const data = await getCachedExec(`python api/real_akd_api.py ${symbol}`, `akd_${symbol}`);
         res.json(data);
     } catch (error) {
         console.error('AKD API Hatası:', error);
@@ -137,7 +137,7 @@ app.get('/api/akd/:symbol', async (req, res) => {
 app.get('/api/takas/:symbol', async (req, res) => {
     const { symbol } = req.params;
     try {
-        const data = await getCachedExec(`python3 api/takas_api.py ${symbol}`, `takas_${symbol}`);
+        const data = await getCachedExec(`python api/takas_api.py ${symbol}`, `takas_${symbol}`);
         res.json(data);
     } catch (error) {
         console.error('Takas API Hatası:', error);
@@ -150,7 +150,7 @@ app.get('/api/history/:symbol', async (req, res) => {
     const { symbol } = req.params;
     try {
         // scanner_api.py veya tv_api.py üzerinden yfinance verisi çekilebilir
-        const data = await getCachedExec(`python3 api/tv_api.py ${symbol} history`, `history_${symbol}`);
+        const data = await getCachedExec(`python api/tv_api.py ${symbol} history`, `history_${symbol}`);
         res.json(data);
     } catch (error) {
         console.error('Geçmiş Veri API Hatası:', error);
@@ -161,7 +161,7 @@ app.get('/api/history/:symbol', async (req, res) => {
 // Bülten Verisi Endpoint'i
 app.get('/api/bulten', async (req, res) => {
     try {
-        const data = await getCachedExec('python3 api/bulten_api.py', 'bulten');
+        const data = await getCachedExec('python api/bulten_api.py', 'bulten');
         res.json(data);
     } catch (error) {
         console.error('Bülten API Hatası:', error);
@@ -172,7 +172,7 @@ app.get('/api/bulten', async (req, res) => {
 // Fon Verisi Endpoint'i
 app.get('/api/fon', async (req, res) => {
     try {
-        const data = await getCachedExec('python3 api/fon_api.py', 'fon');
+        const data = await getCachedExec('python api/fon_api.py', 'fon');
         res.json(data);
     } catch (error) {
         console.error('Fon API Hatası:', error);
@@ -184,7 +184,7 @@ app.get('/api/fon', async (req, res) => {
 app.get('/api/scan/:category', async (req, res) => {
     const { category } = req.params;
     try {
-        const data = await getCachedExec(`python3 api/scanner_api.py ${category}`, `scan_${category}`);
+        const data = await getCachedExec(`python api/scanner_api.py ${category}`, `scan_${category}`);
         res.json(data);
     } catch (error) {
         console.error('Tarama API Hatası:', error);
@@ -335,7 +335,7 @@ app.post('/api/stock/batch', async (req, res) => {
         const results = {};
         await Promise.all(symbols.map(async (sym) => {
             try {
-                const { stdout } = await execAsync(`python3 api/tv_api.py ${sym}`);
+                const { stdout } = await execAsync(`python api/tv_api.py ${sym}`);
                 const lines = stdout.trim().split('\n');
                 let data = null;
                 for (let i = lines.length - 1; i >= 0; i--) {

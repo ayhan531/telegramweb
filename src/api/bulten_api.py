@@ -32,8 +32,8 @@ def get_live_price_bigpara(symbol_type, symbol):
             change_tag = soup.select_one('.hisseProcessBar .item.percent span')
         else:
             # For gold, currency, crypto
-            price_tag = soup.select_one('.data.m7 .value') or soup.select_one('.m7 .value')
-            change_tag = soup.select_one('.data.m7 .percent .value') or soup.select_one('.m7 .percent .value')
+            price_tag = soup.select_one('.kurBox .value') or soup.select_one('.data.m7 .value') or soup.select_one('.m7 .value')
+            change_tag = soup.select_one('.kurBox .percent .value') or soup.select_one('.data.m7 .percent .value') or soup.select_one('.m7 .percent .value')
 
         if price_tag:
             price_str = price_tag.text.strip().replace('.', '').replace(',', '.')
@@ -93,9 +93,11 @@ def get_bulten_data():
     btc = get_live_price_bigpara('kripto', 'bitcoin')
     
     # Fallbacks if scraping fails (more realistic than hardcoded old values)
-    if not usd: usd = {"symbol": "DOLAR", "price": "34,45", "change": "+0.10%"}
-    if not gold: gold = {"symbol": "GRAM ALTIN", "price": "3.135,50", "change": "+0.25%"}
-    if not btc: btc = {"symbol": "BITCOIN", "price": "72.450", "change": "+1.20%"}
+    if not usd: usd = {"symbol": "DOLAR", "price": "GÜNCELLENİYOR", "change": "%0.00"}
+    if not gold: gold = {"symbol": "GRAM ALTIN", "price": "GÜNCELLENİYOR", "change": "%0.00"}
+    if not btc: btc = {"symbol": "BITCOIN", "price": "GÜNCELLENİYOR", "change": "%0.00"}
+
+    valid_bist = [b for b in bist_sum if b and isinstance(b.get('change_val'), (int, float))]
 
     return {
         "index_name": "BIST 100",
@@ -106,8 +108,8 @@ def get_bulten_data():
         "bist_summary": bist_sum,
         "crypto_summary": [btc],
         "commodity_summary": [gold, usd],
-        "gainers": sorted([b for b in bist_sum if b['change_val'] > 0], key=lambda x: x['change_val'], reverse=True)[:5],
-        "losers": sorted([b for b in bist_sum if b['change_val'] < 0], key=lambda x: x['change_val'])[:5]
+        "gainers": sorted([b for b in valid_bist if b['change_val'] > 0], key=lambda x: x['change_val'], reverse=True)[:5],
+        "losers": sorted([b for b in valid_bist if b['change_val'] < 0], key=lambda x: x['change_val'])[:5]
     }
 
 if __name__ == "__main__":
