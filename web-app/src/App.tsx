@@ -882,7 +882,7 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack, user }: { s
           {tab === 'teknik' && (
             <div className="space-y-4">
               <div className="soft-card p-5">
-                <h3 className="text-zinc-500 text-[11px] font-semibold uppercase tracking-wider mb-4">Teknik Analiz Özeti</h3>
+                <h3 className="text-zinc-500 text-[11px] font-semibold uppercase tracking-wider mb-4">TradingView Önemli Göstergeler</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-black/40 p-3 rounded-xl border border-white/5 text-center">
                     <div className="text-[10px] text-zinc-500 font-bold uppercase mb-1">RSI (14)</div>
@@ -894,10 +894,14 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack, user }: { s
                     <div className="text-[10px] text-zinc-500 font-bold uppercase mb-1">MACD</div>
                     <div className="text-lg font-black text-white">{scan?.macd || '---'}</div>
                   </div>
-                  <div className="col-span-2 bg-black/40 p-3 rounded-xl border border-white/5 flex justify-between items-center">
-                    <div className="text-[10px] text-zinc-500 font-bold uppercase">Hareketli Ortalamalar</div>
-                    <div className="bg-cyan-500/10 text-cyan-400 text-[11px] font-black px-3 py-1 rounded-full border border-cyan-500/20">{scan?.moving_averages || 'Güçlü Al'}</div>
-                  </div>
+                </div>
+
+                {/* TV Technical Gauge Widget */}
+                <div className="mt-6 bg-black/40 rounded-xl border border-white/5 overflow-hidden h-[280px]">
+                  <iframe
+                    src={`https://www.tradingview-widget.com/embed-widget/technical-analysis/?locale=tr&symbol=${stock?.exchange || 'BIST'}%3A${symbol}&interval=1D&width=100%25&height=100%25&isTransparent=true&theme=dark`}
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                  ></iframe>
                 </div>
               </div>
 
@@ -963,11 +967,11 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack, user }: { s
           )}
 
           {tab === 'grafik' && (
-            <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden aspect-square relative">
+            <div className="bg-[#111114] border border-white/5 rounded-2xl overflow-hidden aspect-[3/4] sm:aspect-square relative">
               <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0c]">
                 <iframe
-                  src={`https://s.tradingview.com/widgetembed/?frameElementId=tw&symbol=${stock?.exchange === 'Hesaplanan' && symbol === 'GA' ? 'FX_IDC%3AXAUUSD' : `${stock?.exchange || 'BIST'}%3A${symbol}`
-                    }&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=1a1a1d&theme=dark`}
+                  src={`https://www.tradingview-widget.com/embed-widget/advanced-chart/?locale=tr&symbol=${stock?.exchange === 'Hesaplanan' && symbol === 'GA' ? 'FX_IDC%3AXAUUSD' : `${stock?.exchange || 'BIST'}%3A${symbol}`
+                    }&interval=D&timezone=Europe%2FIstanbul&theme=dark&style=1&withdateranges=true&hide_side_toolbar=false&allow_symbol_change=false&save_image=false&details=true&hotlist=true&calendar=true&hotlist=true&show_popup_button=true&popup_width=1000&popup_height=650`}
                   style={{ width: '100%', height: '100%', border: 'none' }}
                 ></iframe>
               </div>
