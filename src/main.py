@@ -73,11 +73,12 @@ def footer_block() -> str:
     return f"{DIVIDER}\n_{FOOTER}_"
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  MATRIKS UI SCRAPER (Ekran Görüntüsü)
+#  MATRIKS UI SCRAPER (Ekran Görüntüsü) - v5
 # ─────────────────────────────────────────────────────────────────────────────
-async def call_matriks_ui(symbol: str, hotkey: str, window_part: str):
+async def call_matriks_ui(symbol: str, action: str, window_part: str):
     try:
-        script      = os.path.join(root_dir, 'matriks_bridge', 'universal_scraper.py')
+        # scraper_v5.py: F1 + sağ tık + menü seçimi
+        script      = os.path.join(root_dir, 'matriks_bridge', 'scraper_v5.py')
         safe_part   = "".join(x for x in window_part if x.isalnum())
         output_path = os.path.join(root_dir, 'data', 'matriks', f"{symbol}_{safe_part}.png")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -86,8 +87,9 @@ async def call_matriks_ui(symbol: str, hotkey: str, window_part: str):
             try: os.remove(output_path)
             except: pass
 
+        # scraper_v5.py format: symbol action output_path
         proc = await asyncio.create_subprocess_exec(
-            'python', script, symbol, hotkey, window_part, output_path,
+            'python', script, symbol, action, output_path,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
@@ -369,29 +371,26 @@ async def cmd_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  /start — Ana Menü
+#  /start — Ana Menü (Tek Celsede)
 # ─────────────────────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         f"*{BRAND}*\n"
         f"{I['terminal']}  {TAGLINE}\n"
         f"{DIVIDER}\n\n"
-        f"*{I['radar']}  VERİ TERMİNALİ*\n\n"
-        f"  {I['terminal']}  `/sorgu`       — Sembol Arama (Örn: `/sorgu THYAO`)\n"
-        f"  {I['radar']}  `/radar`       — Hisse Radar — Günün Fırsatları\n"
-        f"  {I['teknik']}  `/teknik`      — Teknik Tarama  _(veya: `/teknik THYAO`)_\n"
-        f"  {I['akd']}  `/akdtara`     — AKD Tarama — Kurum Alım/Satım\n"
-        f"  {I['takas']}  `/takastara`   — Takas Tarama — MKK Saklama\n"
-        f"  {I['kap']}  `/kap`         — KAP Ajan  _(veya: `/kap THYAO`)_\n\n"
-        f"{DIVIDER}\n\n"
-        f"*{I['depth']}  MATRİKS CANLI TERMİNAL*\n\n"
-        f"  {I['depth']}  `/derinlik`    — 25 Kademe Derinlik\n"
-        f"  {I['akd']}  `/akd`         — Araçı Kurum Dağılımı\n"
-        f"  {I['takas']}  `/takas`       — Takas Verileri\n"
-        f"  {I['bullet']}  `/islem`       — Zaman ve Satış\n"
-        f"  {I['bullet']}  `/teorik`      — Teorik Eşleşme\n"
-        f"  {I['chart']}  `/grafik`      — Teknik Grafik\n\n"
-        f"  _{I['bullet']}  Kullanım: `/derinlik THYAO` — `/akd GARAN`_\n\n"
+        f"  {I['terminal']}  `/sorgu`  — Sembol Ara (Örn: `/sorgu THYAO`)\n"
+        f"  {I['radar']}  `/radar`  — Günün Fırsatları (Radar)\n"
+        f"  {I['teknik']}  `/teknik` — Teknik Tarama & Analiz\n"
+        f"  {I['akd']}  `/akdtara` — Kurum Alım/Satım Analizi\n"
+        f"  {I['takas']}  `/takastara` — MKK Saklama / Takas\n"
+        f"  {I['kap']}  `/kap` — KAP Ajanı & Bildirimler\n"
+        f"  {I['depth']}  `/derinlik` — 25 Kademe Derinlik\n"
+        f"  {I['akd']}  `/akd` — Araçı Kurum Dağılımı\n"
+        f"  {I['takas']}  `/takas` — Takas Verileri (MKK)\n"
+        f"  {I['bullet']}  `/islem` — Zaman ve Satış Detayı\n"
+        f"  {I['bullet']}  `/teorik` — Teorik Eşleşme Verisi\n"
+        f"  {I['chart']}  `/grafik` — Matriks Teknik Grafik\n\n"
+        f"  _{I['bullet']} Kullanım: Komutu yazıp yanına hisse kodunu ekleyin (Örn: `/derinlik THYAO`)_\n\n"
         f"{DIVIDER}\n"
         f"_{FOOTER}_"
     )
@@ -399,12 +398,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ─── Matriks Komut Handler'ları ───────────────────────────────────────────────
-async def derinlik(u, c): await matriks_command(u, c, "f1",   "Kademe Analizi",       "Kademe Derinlik",      "depth")
-async def akd     (u, c): await matriks_command(u, c, "f3",   "AracıKurumDagilimi",   "Araçı Kurum Dağılımı", "akd")
-async def takas   (u, c): await matriks_command(u, c, "f4",   "Takas",                "Takas Verileri",       "takas")
-async def islem   (u, c): await matriks_command(u, c, "f5",   "ZamanSatis",           "Zaman ve Satış",       "bullet")
-async def teorik  (u, c): await matriks_command(u, c, "f8",   "TeorikEslesme",        "Teorik Eşleşme",       "neutral")
-async def grafik  (u, c): await matriks_command(u, c, "altg", "Grafik",               "Teknik Grafik",        "chart")
+# scraper_v3 action'ları: derinlik, akd, grafik, fiyat
+async def derinlik(u, c): await matriks_command(u, c, "derinlik", "Kademe Analizi",       "Kademe Derinlik",      "depth")
+async def akd     (u, c): await matriks_command(u, c, "akd",      "Aracı Kurum Dağılımı", "Araçı Kurum Dağılımı", "akd")
+async def takas   (u, c): await matriks_command(u, c, "f4",      "Takas",                "Takas Verileri",       "takas")
+async def islem   (u, c): await matriks_command(u, c, "f5",      "Zaman Satış",           "Zaman ve Satış",       "bullet")
+async def teorik  (u, c): await matriks_command(u, c, "f8",      "Teorik Eşleşme",        "Teorik Eşleşme",       "neutral")
+async def grafik  (u, c): await matriks_command(u, c, "grafik",  "Grafik",               "Teknik Grafik",        "chart")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

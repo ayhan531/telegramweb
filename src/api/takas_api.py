@@ -136,11 +136,15 @@ def get_takas_from_bigpara(symbol):
     return None
 
 def get_takas_data(symbol):
-    """
-    Ana takas fonksiyonu.
-    1. İş Yatırım MKK saklama API
-    2. Bigpara scraping
-    """
+    # 0. Matriks REST API Kontrol Et (Öncelikli)
+    try:
+        from .matriks_api import matriks
+        if matriks.is_configured():
+            m_data = matriks.get_takas(symbol)
+            if m_data and "error" not in m_data and m_data.get("holders"):
+                return m_data
+    except: pass
+
     # 1. İş Yatırım
     data = get_takas_from_isyatirim(symbol)
     if data and data.get("holders"):

@@ -163,10 +163,10 @@ def get_akd_from_bigpara_scrape(symbol):
         pass
     return None
 
-async def get_real_akd_data(symbol):
+async def get_real_akd_data(symbol, fast_mode=False):
     """
     Ana AKD fonksiyonu. Önce İş Yatırım API'sini dener, sonra Bigpara scraping.
-    Eğer hepsi başarısız olursa, Playwright kullanan agressif Headless Scraper'a (browser_scraper.py) devredilir.
+    Eğer fast_mode=True ise headless scraper'ı atlar (Tarama için önerilir).
     """
     # 0. Matriks Köprü (Bridge) Verisini Kontrol Et (En yüksek öncelik)
     try:
@@ -181,6 +181,17 @@ async def get_real_akd_data(symbol):
                     return cache_file["data"]
     except Exception as e:
         print(f"DEBUG: Matriks Bridge Data error: {e}")
+
+    # 0.5. Matriks REST API Kontrol Et (Yeni Entegrasyon)
+    try:
+        from .matriks_api import matriks
+        if matriks.is_configured():
+            print(f"DEBUG: {symbol} için Matriks REST API sorgulanıyor...")
+            m_data = matriks.get_akd(symbol)
+            if m_data and "error" not in m_data and (m_data.get("buyers") or m_data.get("sellers")):
+                return m_data
+    except Exception as e:
+        print(f"DEBUG: Matriks REST API error: {e}")
 
     # 1. İş Yatırım API (en güvenilir) - Blocking calls run in thread
     try:
@@ -201,18 +212,19 @@ async def get_real_akd_data(symbol):
         print(f"DEBUG: Bigpara Scrape error: {e}")
         
     # 3. Son çare: Agresif Başsız Tarayıcı Kazıması (Browser Scraper)
-    try:
-        print(f"DEBUG: Falling back to Headless Scraper for {symbol}...")
-        from .browser_scraper import scrape_master
-        headless_data = await scrape_master(symbol)
-        if headless_data and (headless_data.get("buyers") or headless_data.get("status") != "Hata (Veri Bulunamadı)"):
-            print(f"DEBUG: Headless Scraper SUCCESS for {symbol}")
-            return headless_data
-        else:
-            print(f"DEBUG: Headless Scraper failed to find data for {symbol}")
-    except Exception as e:
-        print(f"DEBUG: Headless Scrape Exception: {e}")
-        pass
+    if not fast_mode:
+        try:
+            print(f"DEBUG: Falling back to Headless Scraper for {symbol}...")
+            from .browser_scraper import scrape_master
+            headless_data = await scrape_master(symbol)
+            if headless_data and (headless_data.get("buyers") or headless_data.get("status") != "Hata (Veri Bulunamadı)"):
+                print(f"DEBUG: Headless Scraper SUCCESS for {symbol}")
+                return headless_data
+            else:
+                print(f"DEBUG: Headless Scraper failed to find data for {symbol}")
+        except Exception as e:
+            print(f"DEBUG: Headless Scrape Exception: {e}")
+            pass
 
     # 4. Hiçbiri çalışmazsa: Demo / Simüle Veri Gönder (Arayüz bozulmasın diye)
     print(f"DEBUG: Tümü başarısız. {symbol} için simüle edilmiş gösterim verisi oluşturuluyor.")

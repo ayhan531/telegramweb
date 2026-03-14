@@ -12,7 +12,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const execAsync = promisify(exec);
-import { getFavorites, addFavorite, removeFavorite, isFavorite } from './db.js';
+import { getFavorites, addFavorite, removeFavorite, isFavorite, addAlarm, getAlarms, removeAlarm } from './db.js';
+
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 import crypto from 'crypto';
@@ -230,7 +231,36 @@ app.post('/api/push-matriks-derinlik/:symbol', (req, res) => {
     }
 });
 
-// Önbelleğe alınmış Derinlik verisini okuma endpoint'i
+// Derinlik (Order Book) Verisi Endpoint'i
+app.get('/api/derinlik/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    
+    // 1. Önce Matriks Bridge (Cache) kontrol et
+    const filePath = path.join(MATRIKS_DATA_DIR, `${symbol.toUpperCase()}_derinlik.json`);
+    if (fs.existsSync(filePath)) {
+        try {
+            const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            const ageMs = Date.now() - raw.timestamp;
+            // Eğer veri 1 dakikadan yeniyse kullan
+            if (ageMs < 60000) {
+                return res.json({ ...raw.data, age_seconds: Math.round(ageMs / 1000), source: "Matriks Bridge" });
+            }
+        } catch (e) {}
+    }
+
+    // 2. Cache yoksa veya eskiyse Matriks REST API üzerinden çekmeyi dene
+    try {
+        const data = await getCachedExec(`python3 src/api/matriks_api.py ${symbol} orderbook`, `depth_${symbol}`);
+        if (data && !data.error) {
+            return res.json(data);
+        }
+    } catch (error) {}
+
+    // 3. Hiçbiri yoksa hata ver
+    res.status(404).json({ error: 'Derinlik verisi bulunamadı' });
+});
+
+// Önbelleğe alınmış Derinlik verisini okuma endpoint'i (Legacy support)
 app.get('/api/derinlik-cache/:symbol', (req, res) => {
     const { symbol } = req.params;
     const filePath = path.join(MATRIKS_DATA_DIR, `${symbol.toUpperCase()}_derinlik.json`);
@@ -259,6 +289,64 @@ app.get('/api/akd-cache/:symbol', (req, res) => {
         res.json({ ...raw.data, age_seconds: Math.round(ageMs / 1000) });
     } catch {
         res.status(500).json({ error: 'Dosya okunamadı' });
+    }
+});
+
+// --- Alarm Endpoint'leri ---
+
+app.get('/api/alarms/:userId', (req, res) => {
+    try {
+        const alarms = getAlarms(req.params.userId);
+        res.json(alarms);
+    } catch (error) {
+        res.status(500).json({ error: 'Alarmlar alınamadı' });
+    }
+});
+
+app.post('/api/alarms', (req, res) => {
+    const { userId, symbol, targetPrice, condition } = req.body;
+    const initData = req.headers['x-telegram-init-data'];
+    if (!validateInitData(initData)) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        addAlarm(userId, symbol, targetPrice, condition);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Alarm eklenemedi' });
+    }
+});
+
+app.delete('/api/alarms/:alarmId', (req, res) => {
+    const { userId } = req.body;
+    const initData = req.headers['x-telegram-init-data'];
+    if (!validateInitData(initData)) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        removeAlarm(req.params.alarmId, userId);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Alarm silinemedi' });
+    }
+});
+
+// --- Favori Hisse Güncel Fiyat (Batch) ---
+app.post('/api/stock/batch', async (req, res) => {
+    const { symbols } = req.body;
+    if (!symbols || !Array.isArray(symbols)) return res.status(400).json({ error: 'symbols array required' });
+    try {
+        const results = {};
+        await Promise.all(symbols.map(async (sym) => {
+            try {
+                const { stdout } = await execAsync(`python3 api/tv_api.py ${sym}`);
+                const lines = stdout.trim().split('\n');
+                let data = null;
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    try { data = JSON.parse(lines[i]); break; } catch { }
+                }
+                if (data) results[sym] = data;
+            } catch { }
+        }));
+        res.json(results);
+    } catch (error) {
+        res.status(500).json({ error: 'Batch fiyat alınamadı' });
     }
 });
 

@@ -57,41 +57,65 @@ def get_bigpara_data(symbol):
     return None
 
 def get_yfinance_fallback(symbol):
-    try:
-        s = f"{symbol.upper()}.IS"
-        ticker = yf.Ticker(s)
-        info = ticker.info
-        if info and 'regularMarketPrice' in info:
-            return {
-                "price": info.get('regularMarketPrice'),
-                "change": info.get('regularMarketChangePercent', 0.0),
-                "name": info.get('longName', symbol),
-                "exchange": "BIST",
-                "low": str(info.get('dayLow', 0)),
-                "high": str(info.get('dayHigh', 0)),
-                "open": str(info.get('regularMarketOpen', 0)),
-                "volume": str(info.get('volume', 0)),
-                "source": "yfinance (Fallback)"
-            }
-    except: pass
+    sym_upper = symbol.upper()
+    # Kripto veya Döviz ise (örn: BTC-USD, USDTRY=X) direkt yfinance'den dene
+    is_global = '-' in sym_upper or '=' in sym_upper or sym_upper in ['GC=F', 'SI=F', 'CL=F', 'AAPL', 'TSLA', 'NVDA']
+    
+    candidates = [sym_upper] if is_global else [f"{sym_upper}.IS", sym_upper]
+    
+    for s in candidates:
+        try:
+            ticker = yf.Ticker(s)
+            info = ticker.info
+            price = info.get('regularMarketPrice') or info.get('currentPrice')
+            if price is not None:
+                return {
+                    "price": price,
+                    "change": info.get('regularMarketChangePercent', 0.0),
+                    "name": info.get('shortName') or info.get('longName', symbol),
+                    "exchange": info.get('exchange', 'Global'),
+                    "low": str(info.get('dayLow', '0')),
+                    "high": str(info.get('dayHigh', '0')),
+                    "open": str(info.get('regularMarketOpen', '0')),
+                    "volume": str(info.get('volume', '0')),
+                    "source": "Yahoo Finance"
+                }
+        except:
+            pass
     return None
 
 def get_history_data(symbol):
-    try:
-        s = f"{symbol.upper()}.IS"
-        df = yf.download(s, period="1mo", interval="1d", progress=False)
-        if df.empty: return []
-        
-        history = []
-        for index, row in df.iterrows():
-            history.append({
-                "date": index.strftime('%Y-%m-%d'),
-                "price": float(row['Close'])
-            })
-        return history
-    except: return []
+    sym_upper = symbol.upper()
+    is_global = '-' in sym_upper or '=' in sym_upper or sym_upper in ['GC=F', 'SI=F', 'CL=F', 'AAPL', 'TSLA', 'NVDA']
+    candidates = [sym_upper] if is_global else [f"{sym_upper}.IS", sym_upper]
+    
+    for s in candidates:
+        try:
+            df = yf.download(s, period="1mo", interval="1d", progress=False)
+            if not df.empty:
+                history = []
+                for index, row in df.iterrows():
+                    # Handle multi-index columns from new yfinance
+                    close_val = row['Close'].iloc[0] if isinstance(row['Close'], pd.Series) else row['Close']
+                    history.append({
+                        "date": index.strftime('%Y-%m-%d'),
+                        "price": float(close_val)
+                    })
+                return history
+        except:
+            pass
+    return []
 
 def get_unified_data(symbol):
+    # 0. Matriks REST API Kontrol Et (Öncelikli)
+    try:
+        from .matriks_api import matriks
+        if matriks.is_configured():
+            m_data = matriks.get_quote(symbol)
+            if m_data and "error" not in m_data:
+                return m_data
+    except: pass
+
     data = get_bigpara_data(symbol)
     if data: return data
     data = get_yfinance_fallback(symbol)

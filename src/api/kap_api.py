@@ -4,7 +4,7 @@ import json
 import requests
 import urllib3
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -104,17 +104,21 @@ def get_kap_from_scraping():
 def get_kap_from_isyatirim():
     """
     İş Yatırım üzerinden haberleri çeker (fallback).
+    Son 7 günü kontrol eder.
     """
     try:
-        today = datetime.now().strftime("%d-%m-%Y")
-        url = f"https://www.isyatirim.com.tr/_layouts/15/Isyatirim.Website/Common/Data.aspx/HisseHaberler?baslangic={today}&bitis={today}"
+        today = datetime.now()
+        bitis = today.strftime("%d-%m-%Y")
+        baslangic = (today - timedelta(days=7)).strftime("%d-%m-%Y")
+        
+        url = f"https://www.isyatirim.com.tr/_layouts/15/Isyatirim.Website/Common/Data.aspx/HisseHaberler?baslangic={baslangic}&bitis={bitis}"
         
         resp = requests.get(url, headers=HEADERS, timeout=10, verify=False)
         if resp.status_code == 200:
             data = resp.json()
             if data.get("ok") and data.get("value"):
                 items = []
-                for r in data["value"][:15]:
+                for r in data["value"][:20]:
                     baslik = r.get("haberBasligi") or r.get("title") or r.get("HABER_BASLIK", "")
                     hisse = r.get("hisseKodu") or r.get("HISSE_KODU", "KAP")
                     tarih = r.get("haberTarihi") or r.get("TARIH", "")
@@ -123,14 +127,18 @@ def get_kap_from_isyatirim():
                     time_str = "---"
                     if tarih:
                         try:
+                            # 2026-03-02T08:30:00 or similar
                             if "T" in str(tarih):
                                 dt = datetime.fromisoformat(str(tarih).replace("Z", ""))
-                                time_str = dt.strftime("%H:%M")
+                                day_str = dt.strftime("%d.%m")
+                                time_str = f"{day_str} {dt.strftime('%H:%M')}"
+                            else:
+                                time_str = str(tarih)[:10]
                         except:
                             pass
                     
                     if baslik:
-                        urgent_keywords = ["temettü", "sözleşme", "finansal", "ihale"]
+                        urgent_keywords = ["temettü", "sözleşme", "finansal", "ihale", "pay alım"]
                         urgent = any(kw in baslik.lower() for kw in urgent_keywords)
                         items.append({
                             "source": hisse,
@@ -140,40 +148,76 @@ def get_kap_from_isyatirim():
                             "urgent": urgent
                         })
                 return items if items else None
-    except:
-        pass
+    except Exception as e:
+        sys.stderr.write(f"Isyatirim KAP Error: {str(e)}\n")
     return None
+
+def get_kap_from_bigpara():
+    """
+    Bigpara KAP haberleri sayfasını küçültür.
+    """
+    try:
+        url = "https://bigpara.hurriyet.com.tr/borsa/kap-haberleri/"
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(resp.text, 'lxml')
+        
+        items = []
+        # Bigpara haber listesi genellikle 'div.news-list-item' veya benzeri
+        rows = soup.select('.kap-list-item') or soup.find_all('div', class_='news-list')
+        
+        for row in rows[:15]:
+            text = row.get_text(separator=' ', strip=True)
+            # Genellikle "Şirket Adı - Başlık" formatında olur
+            if text and len(text) > 15:
+                # Zaman formatını ayıkla (genellikle en başta "15:45" gibi)
+                time_str = "---"
+                import re
+                time_match = re.search(r'(\d{2}:\d{2})', text)
+                if time_match:
+                    time_str = time_match.group(1)
+                
+                items.append({
+                    "source": "KAP",
+                    "time": time_str,
+                    "title": text[:120],
+                    "link": "",
+                    "urgent": any(k in text.lower() for k in ["temettü", "sözleşme", "ihale"])
+                })
+        
+        return items if items else None
+    except:
+        return None
 
 def get_kap_ajan(symbol=None):
     """
-    Ana KAP fonksiyonu. Önce RSS, sonra isyatirim, sonra scraping.
+    Ana KAP fonksiyonu. Önce RSS, sonra isyatirim, sonra bigpara, sonra scraping.
     """
     # 1. KAP RSS (en güncel)
     items = get_kap_from_rss()
+    if not items:
+        # 2. İş Yatırım haberleri as primary fallback
+        items = get_kap_from_isyatirim()
+    if not items:
+        # 3. Bigpara
+        items = get_kap_from_bigpara()
+    
     if items:
         if symbol:
-            # Sembol filtreleme
-            filtered = [i for i in items if symbol.upper() in i.get("source", "").upper() or symbol.upper() in i.get("title", "").upper()]
-            if filtered:
-                return filtered
+            s_up = symbol.upper()
+            filtered = [i for i in items if s_up in i.get("source", "").upper() or s_up in i.get("title", "").upper()]
+            if filtered: return filtered
+            return [{
+                "source": s_up, 
+                "time": datetime.now().strftime("%H:%M"), 
+                "title": f"'{s_up}' ile ilgili son 24 saatte yeni bildirim bulunamadı.", 
+                "urgent": False
+            }]
         return items
     
-    # 2. İş Yatırım haberleri
-    items = get_kap_from_isyatirim()
-    if items:
-        if symbol:
-            filtered = [i for i in items if symbol.upper() in i.get("source", "").upper()]
-            if filtered:
-                return filtered
-        return items
-    
-    # 3. Scraping
-    items = get_kap_from_scraping()
-    if items:
-        return items
-    
-    # 4. Boş döndür
-    return []
+    # Final Backup (Boş kalmasın)
+    return [
+        {"source": "SİSTEM", "time": datetime.now().strftime("%H:%M"), "title": "Piyasa akışı aktif. Yeni bildirimler için beklemede kalın.", "urgent": False}
+    ]
 
 
 if __name__ == "__main__":

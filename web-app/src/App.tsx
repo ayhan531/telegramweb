@@ -21,6 +21,8 @@ const App: React.FC = () => {
   const [alarms, setAlarms] = useState<any[]>([]);
   const [bultenLoading, setBultenLoading] = useState(false);
   const [fonLoading, setFonLoading] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+  const [fadingSplash, setFadingSplash] = useState(false);
 
   useEffect(() => {
     try {
@@ -58,7 +60,17 @@ const App: React.FC = () => {
     fetchGlobalData();
 
     const interval = setInterval(fetchGlobalData, 30000); // 30 saniyede bir ana verileri yenile
-    return () => clearInterval(interval);
+
+    // Splash Screen Timer
+    const splashTimer = setTimeout(() => {
+      setFadingSplash(true);
+      setTimeout(() => setShowSplash(false), 800);
+    }, 2800);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(splashTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -123,6 +135,21 @@ const App: React.FC = () => {
              <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em]">PARİBU MENKUL DEĞER — PROFESYONEL VERİ TERMİNALİ</span>
           </div>
         </>
+      )}
+
+      {showSplash && (
+        <div className={`splash-overlay ${fadingSplash ? 'splash-exit' : ''}`}>
+          <div className="splash-bg-glow" />
+          <div className="splash-logo-container">
+            <img src={logo} alt="Logo" className="splash-logo" />
+            <h1 className="splash-title">PARİBU</h1>
+            <p className="splash-subtitle">MENKUL DEĞER</p>
+            <div className="splash-progress-container">
+              <div className="splash-progress-bar" />
+            </div>
+          </div>
+          <div className="splash-footer text-[10px] opacity-20">PROFESYONEL VERİ TERMİNALİ v1.0</div>
+        </div>
       )}
     </div>
   );

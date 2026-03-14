@@ -205,9 +205,24 @@ def get_matriks_status():
 
 if __name__ == "__main__":
     import sys
-    status = get_matriks_status()
-    print(json.dumps(status, ensure_ascii=False, indent=2))
     
-    if matriks.is_configured():
-        symbol = sys.argv[1].upper() if len(sys.argv) > 1 else "THYAO"
-        print(json.dumps(get_matriks_quote(symbol), ensure_ascii=False, indent=2))
+    if len(sys.argv) < 2:
+        status = get_matriks_status()
+        print(json.dumps(status, ensure_ascii=False, indent=2))
+        sys.exit(0)
+        
+    symbol = sys.argv[1].upper()
+    mode = sys.argv[2].lower() if len(sys.argv) > 2 else "quote"
+    
+    if mode == "quote":
+        result = get_matriks_quote(symbol)
+    elif mode == "orderbook":
+        result = get_matriks_orderbook(symbol)
+    elif mode == "akd":
+        result = get_matriks_akd(symbol)
+    elif mode == "takas":
+        result = get_matriks_takas(symbol)
+    else:
+        result = {"error": f"Geçersiz mod: {mode}"}
+        
+    print(json.dumps(result, ensure_ascii=False))

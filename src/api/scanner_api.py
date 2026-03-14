@@ -23,15 +23,19 @@ def get_live_market_summary():
         market_data = []
         for row in rows:
             cols = row.select('li')
-            if len(cols) >= 4:
+            if len(cols) >= 10:
                 try:
                     symbol = cols[0].get_text(strip=True)
                     price = cols[1].get_text(strip=True)
-                    change_raw = cols[2].get_text(strip=True).replace(',', '.')
+                    # Bigpara Live table: 0:Symbol, 1:Price, 2:Low, 3:High, 4:Weighted Avg, 5:Change %, 13: Volume (Lot)
+                    change_raw = cols[5].get_text(strip=True).replace(',', '.')
+                    volume_raw = cols[13].get_text(strip=True).replace('.', '')
+                    
                     market_data.append({
                         "symbol": symbol,
                         "price": price,
-                        "change": float(change_raw) if change_raw else 0.0
+                        "change": float(change_raw) if change_raw else 0.0,
+                        "volume": volume_raw
                     })
                 except: continue
         return market_data
@@ -71,11 +75,15 @@ def get_radar_tarama():
     return results
 
 def get_teknik_tarama():
-    """BIST 30 hisseleri üzerinde gerçek zamanlı teknik tarama."""
+    """BIST 10 hisseleri üzerinde gerçek zamanlı teknik tarama."""
     symbols = ["THYAO", "EREGL", "ASELS", "KCHOL", "TUPRS", "YKBNK", "ISCTR", "SAHOL", "GARAN", "AKBNK"]
+    live_summary = get_live_market_summary()
     
     def analyze(s):
         try:
+            # Live summary eşleşmesi
+            live = next((item for item in live_summary if item["symbol"] == s), {})
+            
             ticker = yf.Ticker(f"{s}.IS")
             df = ticker.history(period="1mo")
             if df.empty: return None
@@ -91,12 +99,22 @@ def get_teknik_tarama():
             elif rsi > 65: status, color = "Aşırı Alım / Kar Satışı", "#ffb04f"
             else: status, color = "Nötr / Yatay Trend", "#60a5fa"
                 
+            # Hacim bilgisini kısalım (Milyon formatı)
+            vol_raw = float(live.get('volume', 0))
+            if vol_raw > 1_000_000:
+                vol_str = f"{vol_raw/1_000_000:.1f}M"
+            elif vol_raw > 1_000:
+                vol_str = f"{vol_raw/1_000:.1f}K"
+            else:
+                vol_str = str(vol_raw)
+
             return {
                 "symbol": s,
                 "price": f"{last_price:,.2f}",
                 "status": status,
                 "color": color,
-                "rsi": f"{rsi:.1f}"
+                "rsi": f"{rsi:.1f}",
+                "volume": vol_str
             }
         except: return None
 
@@ -120,6 +138,7 @@ def get_akd_tarama():
             "kurum": "Global / Kurumsal",
             "detay": f"Anlık %{s['change']} değişim ile agresif {yon.lower()} baskısı.",
             "yon": yon,
+            "net_hacim": f"{s.get('volume', '?')} Lot",
             "color": "#00ff88" if yon == "ALIŞ" else "#ff3b30"
         })
     return results
@@ -145,15 +164,23 @@ def get_comprehensive_report(symbol):
     """Belirli bir hisse için tüm terminal verilerini (Fiyat, Teknik, KAP) tek seferde toplar."""
     symbol = symbol.upper()
     try:
-        # 1. Teknik Veriler ve Fiyat
+        # 1. Canlı Piyasayı çek ve sembolü bulmaya çalış
+        summary = get_live_market_summary()
+        
+        # Tam eşleşme ara
+        live_info = next((item for item in summary if item["symbol"] == symbol), None)
+        
+        # Tam eşleşme yoksa, içinden geçeni bul (Örn: OYAK -> OYAKC)
+        if not live_info:
+            live_info = next((item for item in summary if symbol in item["symbol"]), None)
+            if live_info:
+                symbol = live_info["symbol"] # Sembolü bulduğumuzla değiştir
+        
+        # 2. Teknik Veriler ve Fiyat
         tech = calculate_single_indicators(symbol)
         
-        # 2. KAP Haberleri
+        # 3. KAP Haberleri
         news = get_kap_ajan(symbol)
-        
-        # 3. Canlı Trend (Bigpara)
-        summary = get_live_market_summary()
-        live_info = next((item for item in summary if item["symbol"] == symbol), None)
         
         return {
             "symbol": symbol,

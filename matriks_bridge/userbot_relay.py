@@ -22,12 +22,17 @@ API_ID   = 37031232
 API_HASH = "518b15f17950300182c1edf6921e7c92"
 SESSION  = os.path.join(os.path.dirname(__file__), "akd_scraper_session")
 
-# GÜNCELLENMİŞ ÖNCELİK LİSTELERİ
+# Hangi komut hangi bottan çalişiyor (test sonuçlarına göre güncellendi)
 BOT_GROUPS = {
-    "default": ["ucretsizderinlikbot", "hisseyorumbot", "b0pt_bot", "xFinans_bot"],
-    # Analizler için hisseyorumbot 1. sırada çünkü daha tutarlı veriler veriyor
-    "analysis": ["hisseyorumbot", "b0pt_bot", "xFinans_bot"],
-    "depth": ["ucretsizderinlikbot", "hisseyorumbot", "b0pt_bot"]
+    "default":      ["ucretsizderinlikbot", "b0pt_bot", "xFinans_bot"],
+    "depth":        ["ucretsizderinlikbot", "b0pt_bot"],
+    "akd":          ["ucretsizderinlikbot", "b0pt_bot"],
+    "islem":        ["b0pt_bot", "xFinans_bot"],
+    "teorik":       ["b0pt_bot", "xFinans_bot"],
+    "takas":        ["b0pt_bot", "xFinans_bot"],
+    "sirketkarti":  ["b0pt_bot", "xFinans_bot"],
+    "detay":        ["b0pt_bot", "xFinans_bot"],
+    "tum":          ["b0pt_bot", "xFinans_bot"],
 }
 
 PORT = 8765
@@ -55,6 +60,7 @@ async def relay_query(command: str, period: str = None, force_photo: bool = Fals
 
 async def _execute_query(command: str, period: str, target: str) -> dict:
     try:
+        symbol = command.split()[-1] if len(command.split()) > 1 else ""
         if not client.is_connected(): await client.connect()
         me = await client.get_me()
         me_id = me.id
@@ -156,7 +162,7 @@ async def _execute_query(command: str, period: str, target: str) -> dict:
 async def handle_akd(request):
     symbol = request.match_info.get("symbol", "").upper()
     period = request.query.get("period")
-    result = await relay_query(f"/akd {symbol}", period=period, force_photo=True, group="default")
+    result = await relay_query(f"/akd {symbol}", period=period, force_photo=True, group="akd")
     return prepare_response(result, symbol, f"AKD ({period or 'Günlük'})")
 
 async def handle_derinlik(request):
@@ -167,13 +173,20 @@ async def handle_derinlik(request):
 async def handle_cmd(request):
     cmd = request.match_info.get("cmd", "")
     symbol = request.match_info.get("symbol", "").upper()
+    period = request.query.get("period")
     
-    # Aracı kurum dağılımı gibi foto odaklı komutlar
-    photo_required = cmd in ["islem", "teorik", "takas", "tum"]
-    # Takas, Detay, Şirket Kartı gibi komutları derinlik botundan istemiyoruz çünkü yanlış/eksik veriyor
-    group = "analysis" if cmd in ["takas", "sirketkarti", "detay", "tum", "teorik"] else "default"
+    # Takas için varsayılan periyot (Eğer verilmediyse direkt görüntü gelsin diye)
+    if cmd == "takas" and not period:
+        period = "Günlük"
     
-    result = await relay_query(f"/{cmd} {symbol}", force_photo=photo_required, group=group)
+    # Her komut için hangi grubun kullanılacağını belirle
+    group = cmd if cmd in BOT_GROUPS else "default"
+    
+    # Fotoğraf zorunlu olanlar (Metin gelirse pas geçilir)
+    # Not: 'tum' ve 'detay' bazı botlarda metin döner, kabul ediyoruz.
+    photo_required = cmd in ["islem", "teorik", "takas"]
+    
+    result = await relay_query(f"/{cmd} {symbol}", period=period, force_photo=photo_required, group=group)
     
     titles = {"islem":"İşlemler","teorik":"Teorik","takas":"Takas","sirketkarti":"Şirket Kartı","detay":"Detay","tum":"Rapor"}
     return prepare_response(result, symbol, titles.get(cmd, cmd.upper()))

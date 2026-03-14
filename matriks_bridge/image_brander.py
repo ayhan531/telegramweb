@@ -1,11 +1,4 @@
-"""
-Gelen fotoğrafı kişiselleştiren modül.
-- Hedef botun watermark/link alanlarını siler (üstüne kapatır)
-- Kendi markamızı (başlık + alt bilgi) ekler
-- Orijinal fotoğraftaki renk paletini korur
-"""
-
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 import io
 import os
 
@@ -41,18 +34,15 @@ def _load_font(size: int):
 def _clean_watermark(img: Image.Image) -> Image.Image:
     """
     Arka plandaki sinsi gri logoları temizler.
-    Eşiği 125'e çıkarıyoruz; böylece sönük olan her şey (logo dahil) arka plan rengine döner.
-    Sadece gerçek veriler (parlak yazılar) kalır.
     """
     img = img.convert("RGB")
-    # RGB toplamı bazlı gelişmiş filtre
     data = img.getdata()
     new_data = []
     bg_color = (10, 10, 14)
-    threshold = 125
+    threshold = 110 # Daha hassas eşik
     
     for item in data:
-        # Luma (parlaklık) kontrolü: (R+G+B)/3
+        # Renklerin sönüklüğünü kontrol et
         if (item[0] + item[1] + item[2]) // 3 < threshold:
             new_data.append(bg_color)
         else:
@@ -64,44 +54,52 @@ def _clean_watermark(img: Image.Image) -> Image.Image:
 def brand_image(raw_bytes: bytes, symbol: str = "", data_type: str = "AKD") -> bytes:
     img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
     
-    # ── 0) Arka Plan Temizliği (Gri logoları %100 sil) ──
+    # ── 1) Kalite Arttırımı (Upscale & Enhancement) ──
+    # Canlılık için renkleri %40 arttır
+    img = ImageEnhance.Color(img).enhance(1.4)
+    # Kontrastı %20 arttır
+    img = ImageEnhance.Contrast(img).enhance(1.2)
+    
+    # Arka plan temizliği
     img = _clean_watermark(img)
+    
+    # 2 kat büyüt (Fontların daha net çıkması için)
+    w_orig, h_orig = img.size
+    img = img.resize((w_orig * 2, h_orig * 2), Image.Resampling.LANCZOS)
     
     w, h = img.size
     draw = ImageDraw.Draw(img)
 
-    # ── Fontları yükle ──────────────────────────────────────────
-    font_title  = _load_font(max(13, w // 32))
-    font_sub    = _load_font(max(10, w // 44))
-    font_brand  = _load_font(max(11, w // 38))
+    # ── Fontları yükle (Büyük boyuta göre) ──
+    font_title  = _load_font(max(26, w // 28))
+    font_sub    = _load_font(max(20, w // 40))
+    font_brand  = _load_font(max(22, w // 34))
 
-    # ── 1) Kaynak botu gizle: SADECE ÜST LOGO VE ALT LİNKİ KAPAT ──
-    # Üst Bölgeyi kapat (Sadece en üstteki logo/başlık alanı)
-    # h*0.15 yeterlidir, fazlası tabloyu kapatır.
-    draw.rectangle([(0, 0), (w, int(h * 0.15))], fill=COVER_COLOR)
+    # ── 2) Kaynak botu gizle ──
+    # Üst Bölgeyi kapat
+    draw.rectangle([(0, 0), (w, int(h * 0.20))], fill=COVER_COLOR)
+    # Alt Bölgeyi kapat
+    draw.rectangle([(0, int(h * 0.94)), (w, h)], fill=COVER_COLOR)
 
-    # Alt taraftaki sinsi linkleri kapat (Sadece en dipteki küçük alan)
-    draw.rectangle([(0, int(h*0.93)), (w, h)], fill=COVER_COLOR)
-
-    # ── 2) Kendi başlık çubuğumuzu ekle ─────────────────────────────
-    bar_h = int(h * 0.13)
+    # ── 3) Kendi başlık çubuğumuzu ekle ──
+    bar_h = int(h * 0.12)
     draw.rectangle([(0, 0), (w, bar_h)], fill=BRAND_BG)
 
     # Sol: Sembol adı + veri tipi
     if symbol:
         title_text = f"{symbol}  —  {data_type.upper()}"
-        draw.text((16, 8), title_text, font=font_title, fill=BRAND_COLOR)
+        draw.text((32, 20), title_text, font=font_title, fill=BRAND_COLOR)
 
     # Sağ: Marka adı
     brand_bbox = draw.textbbox((0, 0), BRAND_NAME, font=font_brand)
     brand_w = brand_bbox[2] - brand_bbox[0]
-    draw.text((w - brand_w - 16, 8), BRAND_NAME, font=font_brand, fill=BRAND_TEXT_CLR)
+    draw.text((w - brand_w - 32, 22), BRAND_NAME, font=font_brand, fill=BRAND_TEXT_CLR)
 
-    # ── 3) Sol dikey şerit ──────────────────────────────────────
-    draw.rectangle([(0, 0), (3, h)], fill=BRAND_COLOR)
+    # ── 4) Sol dikey şerit ──
+    draw.rectangle([(0, 0), (8, h)], fill=BRAND_COLOR)
 
-    # ── 4) Alt bilgi çubuğu ─────────────────────────────────────
-    footer_h = int(h * 0.07)
+    # ── 5) Alt bilgi çubuğu ──
+    footer_h = int(h * 0.06)
     draw.rectangle([(0, h - footer_h), (w, h)], fill=BRAND_BG)
 
     # Alt: copyright
@@ -110,8 +108,13 @@ def brand_image(raw_bytes: bytes, symbol: str = "", data_type: str = "AKD") -> b
     sub_y = h - footer_h + (footer_h - (sub_bbox[3] - sub_bbox[1])) // 2
     draw.text(((w - sub_w) // 2, sub_y), BRAND_SUBTITLE, font=font_sub, fill=(140, 140, 150))
 
-    # ── 5) Çıkış: JPEG ──────────────────────────────────────────
+    # Keskinliği arttır (Son dokunuş)
+    img = ImageEnhance.Sharpness(img).enhance(1.5)
+
+    # ── 6) Çıkış: Yüksek Kaliteli JPEG ──
     out = io.BytesIO()
-    img.save(out, format="JPEG", quality=95)
+    # subsampling=0 (4:4:4) ile renk bozulmalarını engelle
+    img.save(out, format="JPEG", quality=98, subsampling=0)
     out.seek(0)
     return out.read()
+
