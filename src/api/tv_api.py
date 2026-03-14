@@ -107,13 +107,35 @@ def get_history_data(symbol):
     return []
 
 def get_unified_data(symbol):
-    # 0. Matriks REST API Kontrol Et (Öncelikli)
+    # 0. Matriks REST API Kontrol Et
     try:
         from .matriks_api import matriks
         if matriks.is_configured():
             m_data = matriks.get_quote(symbol)
             if m_data and "error" not in m_data:
                 return m_data
+    except: pass
+
+    # 1. TradingView (Auth) Kontrol Et
+    try:
+        try:
+            from tv_tech_api import get_tv_technical_analysis
+        except ImportError:
+            from api.tv_tech_api import get_tv_technical_analysis
+        
+        tv_data = get_tv_technical_analysis(symbol)
+        if tv_data and "error" not in tv_data:
+            return {
+                "price": tv_data.get("price"),
+                "change": 0.0, # TV Scanner doesn't always provide percent directly in this scan
+                "name": symbol,
+                "exchange": "Global/BIST",
+                "low": str(tv_data.get("low", "0")),
+                "high": str(tv_data.get("high", "0")),
+                "open": str(tv_data.get("open", "0")),
+                "volume": str(tv_data.get("volume", "0")),
+                "source": "TradingView (Live)"
+            }
     except: pass
 
     data = get_bigpara_data(symbol)
