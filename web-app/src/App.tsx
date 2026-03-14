@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Search, Building2, MoreHorizontal, Briefcase, Home, Star, Activity, ArrowLeft, RefreshCw, ChevronDown, Bell, ArrowUpRight, ArrowDownRight, Copy, Zap } from 'lucide-react';
 import axios from 'axios';
 import Chart from 'react-apexcharts';
+import { io } from 'socket.io-client';
 import logo from './assets/logo.png';
 
 const API_BASE = '/api';
@@ -23,6 +24,26 @@ const App: React.FC = () => {
   const [fonLoading, setFonLoading] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [fadingSplash, setFadingSplash] = useState(false);
+  const [livePrices, setLivePrices] = useState<Record<string, any>>({});
+  const [marketSignals, setMarketSignals] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Socket.io Connection
+    const socket = io();
+    
+    socket.on('price_update', (data) => {
+      setLivePrices(prev => ({ ...prev, [data.symbol]: data }));
+    });
+
+    socket.on('market_signals', (signals) => {
+      setMarketSignals(signals);
+      // Optional: Show a toast/notification if the user is not on signals view
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -106,11 +127,11 @@ const App: React.FC = () => {
     }
 
     switch (currentView) {
-      case 'anasayfa': return <Anasayfa user={user} bultenData={bultenData} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
+      case 'anasayfa': return <Anasayfa user={user} bultenData={bultenData} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} livePrices={livePrices} marketSignals={marketSignals} />;
       case 'kurumsal': return <Kurumsal akdData={akdData} />;
       case 'bulten': return bultenLoading ? <LoadingView label="Bülten hazırlanıyor..." /> : <Bulten data={bultenData} user={user} />;
       case 'fon': return fonLoading ? <LoadingView label="Fonlar listeleniyor..." /> : <Fon data={fonData} />;
-      case 'diger': return <Diger />;
+      case 'diger': return <Diger signals={marketSignals} />;
       case 'alarm': return <AlarmView user={user} alarms={alarms} onRefresh={refreshAlarms} />;
       default: return <Anasayfa user={user} bultenData={bultenData} favorites={favorites} onSearch={(s: string) => setSymbol(s)} onToggleFavorite={toggleFavorite} />;
     }
@@ -191,7 +212,7 @@ const HeaderBar = ({ title }: { title: string }) => (
   </div>
 );
 
-const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: { user: any, bultenData: any, favorites: string[], onSearch: (s: string) => void, onToggleFavorite: (s: string) => void }) => {
+const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite, livePrices, marketSignals }: any) => {
   const [marketTab, setMarketTab] = useState('BIST');
   const [val, setVal] = useState('');
 
@@ -201,7 +222,7 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
     }
   };
 
-  const filteredFavorites = favorites.filter(f => f.includes(val.toUpperCase()));
+  const filteredFavorites = favorites.filter((f: any) => f.includes(val.toUpperCase()));
 
   return (
     <div className="animate-fade-in animate-duration-200">
@@ -252,6 +273,27 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
           <QuickStat title="BITCOIN" value={bultenData?.crypto_summary?.[0]?.price} change={bultenData?.crypto_summary?.[0]?.change} color="text-orange-400" />
           <QuickStat title="DOLAR" value={bultenData?.commodity_summary?.[1]?.price} change={bultenData?.commodity_summary?.[1]?.change} color="text-cyan-400" />
         </div>
+
+        {/* Robot Eye Signals (Live) */}
+        {marketSignals && marketSignals.length > 0 && (
+          <div className="mt-4 animate-fade-in">
+            <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 bg-cyan-400 rounded-full animate-ping"></span> 🤖 ROBOT GÖZÜ CANLI SİNYALLER
+            </div>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+              {marketSignals.map((sig: any, i: number) => (
+                <div key={i} onClick={() => onSearch(sig.symbol)} className="min-w-[200px] soft-card p-3 border-l-4" style={{ borderColor: sig.signals[0].color }}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-black text-[14px]">{sig.symbol}</span>
+                    <span className="text-[9px] font-bold text-zinc-500">{sig.time}</span>
+                  </div>
+                  <div className="text-[11px] font-bold" style={{ color: sig.signals[0].color }}>{sig.signals[0].label}</div>
+                  <div className="text-[10px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Fiyat: {sig.price} • RSI: {sig.rsi}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="w-full h-[1px] bg-white/5"></div>
@@ -287,7 +329,7 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
           <h4 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-3">BIST 100 ANALİZ ÖZETİ</h4>
           <div className="grid grid-cols-3 gap-2">
             <div className="text-center">
-              <div className="text-[10px] text-zinc-500 font-bold mb-1">ENDEKSq</div>
+              <div className="text-[10px] text-zinc-500 font-bold mb-1">ENDEKS</div>
               <div className="text-[15px] font-black text-white">{bultenData?.price || '---'}</div>
             </div>
             <div className="text-center border-x border-white/5">
@@ -334,7 +376,7 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite }: {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredFavorites.map((fav) => (
-              <FavoriteCard key={fav} symbol={fav} onSelect={onSearch} onRemove={() => onToggleFavorite(fav)} />
+              <FavoriteCard key={fav} symbol={fav} onSelect={onSearch} onRemove={() => onToggleFavorite(fav)} livePrice={livePrices[fav]} />
             ))}
           </div>
         )}
@@ -353,7 +395,7 @@ const QuickStat = ({ title, value, change, color = 'text-white' }: any) => (
   </div>
 );
 
-const FavoriteCard = ({ symbol, onSelect, onRemove }: any) => {
+const FavoriteCard = ({ symbol, onSelect, onRemove, livePrice }: any) => {
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {
@@ -362,12 +404,14 @@ const FavoriteCard = ({ symbol, onSelect, onRemove }: any) => {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 15000); // 15 saniyede bir güncelle
-    return () => clearInterval(interval);
   }, [symbol]);
 
+  // Use live price if available, fallback to static data
+  const displayPrice = livePrice?.price || data?.price || '---';
+  const displayChange = livePrice?.change !== undefined ? livePrice.change : (data?.change || 0);
+
   return (
-    <div onClick={() => onSelect(symbol)} className="soft-card p-4 active:scale-[0.98] transition-all relative group cursor-pointer">
+    <div onClick={() => onSelect(symbol)} className="soft-card p-4 active:scale-[0.98] transition-all relative group cursor-pointer border border-white/5 hover:border-white/20">
       <div className="flex justify-between items-start mb-2">
         <span className="font-bold text-[15px]">{symbol}</span>
         <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="text-[#ff9d00]">
@@ -375,9 +419,9 @@ const FavoriteCard = ({ symbol, onSelect, onRemove }: any) => {
         </button>
       </div>
       <div className="flex justify-between items-end">
-        <div className="text-[18px] font-bold">{data?.price || '---'}</div>
-        <div className={`text-[11px] font-bold ${data?.change >= 0 ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>
-          {data?.change >= 0 ? '+' : ''}{data?.change?.toFixed(2)}%
+        <div className={`text-[18px] font-bold ${livePrice ? 'text-cyan-400 animate-pulse-fast' : ''}`}>{displayPrice}</div>
+        <div className={`text-[11px] font-bold ${displayChange >= 0 ? 'text-[#00ff88]' : 'text-[#ff3b30]'}`}>
+          {displayChange >= 0 ? '+' : ''}{displayChange?.toFixed(2)}%
         </div>
       </div>
     </div>
@@ -599,7 +643,7 @@ const MarketSection = ({ title, data }: any) => (
 );
 
 // 4. DIGER
-const Diger = () => {
+const Diger = ({ signals }: { signals: any[] }) => {
   const [selectedSubView, setSelectedSubView] = useState<string | null>(null);
 
   const handleMenuItemClick = (view: string) => {
@@ -611,7 +655,7 @@ const Diger = () => {
   };
 
   if (selectedSubView) {
-    return <SubViewDetail view={selectedSubView} onBack={handleBack} />;
+    return <SubViewDetail view={selectedSubView} onBack={handleBack} signals={signals} />;
   }
 
   return (
@@ -626,6 +670,9 @@ const Diger = () => {
       </div>
 
       <div className="px-4 space-y-2 pb-10">
+        {signals && signals.length > 0 && (
+            <DigerMenuItem icon={Zap} title="Robot Gözü" subtitle={`${signals.length} Aktif Sinyal Bulundu`} color="text-yellow-400" bg="bg-yellow-400/10" onClick={() => handleMenuItemClick('Robot Gözü')} />
+        )}
         <DigerMenuItem icon={Search} title="Hisse Radar" subtitle="Hisse tarama ve filtreleme" color="text-cyan-400" bg="bg-cyan-400/10" onClick={() => handleMenuItemClick('Hisse Radar')} />
         <DigerMenuItem icon={Activity} title="Teknik Tarama" subtitle="Teknik strateji taramaları" color="text-red-400" bg="bg-red-400/10" onClick={() => handleMenuItemClick('Teknik Tarama')} />
         <DigerMenuItem icon={Search} title="AKD Tarama" subtitle="Kurum alım/satım taraması" color="text-cyan-400" bg="bg-cyan-400/10" onClick={() => handleMenuItemClick('AKD Tarama')} />
@@ -932,8 +979,7 @@ const SymbolDetail = ({ symbol, favorites, onToggleFavorite, onBack, user }: { s
   );
 };
 
-// ======================== SUB VIEW DETAIL ========================
-const SubViewDetail = ({ view, onBack }: { view: string, onBack: () => void }) => {
+const SubViewDetail = ({ view, onBack, signals }: { view: string, onBack: () => void, signals?: any[] }) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -944,6 +990,11 @@ const SubViewDetail = ({ view, onBack }: { view: string, onBack: () => void }) =
     else if (view === 'KAP Ajan') category = 'kap';
     else if (view === 'Takas Tarama') category = 'takas';
     else if (view === 'Hisse Radar') category = 'radar';
+    else if (view === 'Robot Gözü') {
+      setData(signals);
+      setLoading(false);
+      return;
+    }
 
     if (category) {
       setLoading(true);

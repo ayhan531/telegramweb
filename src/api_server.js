@@ -3,22 +3,34 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import axios from 'axios';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const execAsync = promisify(exec);
-import { getFavorites, addFavorite, removeFavorite, isFavorite, addAlarm, getAlarms, removeAlarm } from './db.js';
+import { 
+    getFavorites, addFavorite, removeFavorite, isFavorite, 
+    addAlarm, getAlarms, removeAlarm, getAllActiveAlarms, deactivateAlarm 
+} from './db.js';
+import { connectDB } from './db_mongo.js';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 import crypto from 'crypto';
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: { origin: "*", methods: ["GET", "POST"] }
+});
+
 app.use(cors());
 app.use(express.json());
 
@@ -423,6 +435,89 @@ app.use((req, res, next) => {
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`API Sunucusu http://localhost:${PORT} adresinde çalışıyor`);
+// ======================== BACKGROUND WORKERS ========================
+
+// 1. Alarm & Price Worker (REAL-TIME)
+async function alarmWorker() {
+    try {
+        const alarms = await getAllActiveAlarms();
+        if (alarms.length === 0) return;
+
+        // Group by symbol to reduce API calls
+        const symbols = [...new Set(alarms.map(a => a.symbol))];
+        
+        for (const symbol of symbols) {
+            try {
+                // Get current price
+                const command = `python api/tv_api.py ${symbol}`;
+                const { stdout } = await execAsync(command);
+                const priceData = JSON.parse(stdout.trim().split('\n').pop());
+                const currentPrice = priceData.price;
+
+                // Broadcast real-time price to all clients
+                io.emit('price_update', { symbol, price: currentPrice, change: priceData.change });
+
+                // Check alarms for this symbol
+                const symbolAlarms = alarms.filter(a => a.symbol === symbol);
+                for (const alarm of symbolAlarms) {
+                    let triggered = false;
+                    if (alarm.condition === 'ABOVE' && currentPrice >= alarm.target_price) triggered = true;
+                    if (alarm.condition === 'BELOW' && currentPrice <= alarm.target_price) triggered = true;
+
+                    if (triggered) {
+                        console.log(`[ALARM] Triggered: ${symbol} at ${currentPrice} (${alarm.condition} ${alarm.target_price})`);
+                        
+                        // Send Telegram Notification
+                        if (BOT_TOKEN) {
+                            const message = `🔔 *ALARM TETİKLENDİ!*\n\n*Sembol:* ${symbol}\n*Fiyat:* ${currentPrice}\n*Hedef:* ${alarm.target_price}\n*Durum:* ${alarm.condition === 'ABOVE' ? 'Üzerine Çıktı' : 'Altına Düştü'}`;
+                            const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+                            axios.post(url, {
+                                chat_id: alarm.user_id,
+                                text: message,
+                                parse_mode: 'Markdown'
+                            }).catch(e => console.error("Telegram error:", e.response?.data || e.message));
+                        }
+
+                        // Deactivate alarm
+                        deactivateAlarm(alarm.id);
+                    }
+                }
+            } catch (err) { /* ignore single symbol errors */ }
+        }
+    } catch (err) {
+        console.error("Alarm Worker Error:", err);
+    }
+}
+
+// 2. Signal & Scan Worker (ROBOT EYE)
+async function signalWorker() {
+    try {
+        const command = `python api/signal_scanner.py`;
+        const { stdout } = await execAsync(command);
+        const signals = JSON.parse(stdout.trim().split('\n').pop());
+        
+        if (signals && signals.length > 0) {
+            io.emit('market_signals', signals);
+            console.log(`[SIGNAL] Broadcasted ${signals.length} market signals.`);
+        }
+    } catch (err) {
+        console.error("Signal Worker Error:", err);
+    }
+}
+
+// Register Socket.io connection
+io.on('connection', (socket) => {
+    console.log(`[SOCKET] User connected: ${socket.id}`);
+    socket.on('disconnect', () => console.log(`[SOCKET] User disconnected`));
+});
+
+// Run Workers
+setInterval(alarmWorker, 10000); // Check prices every 10s
+setInterval(signalWorker, 60000); // Scan market every 1m
+
+// Init DB & Start Server
+connectDB().finally(() => {
+    httpServer.listen(PORT, () => {
+        console.log(`API Sunucusu http://localhost:${PORT} adresinde çalışıyor (WebSockets Aktif)`);
+    });
 });
