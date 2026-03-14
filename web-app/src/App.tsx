@@ -71,9 +71,9 @@ const App: React.FC = () => {
       setBultenLoading(false); // First load handles initial screen, polling should be silent
       setFonLoading(false);
 
-      axios.get(`${API_BASE}/akd/THYAO`).then(res => setAkdData(res.data)).catch(console.error);
-      axios.get(`${API_BASE}/bulten`).then(res => setBultenData(res.data)).catch(console.error).finally(() => setBultenLoading(false));
-      axios.get(`${API_BASE}/fon`).then(res => setFonData(res.data)).catch(console.error).finally(() => setFonLoading(false));
+      axios.get(`${API_BASE}/akd/THYAO`).then((res: any) => setAkdData(res.data)).catch(console.error);
+      axios.get(`${API_BASE}/bulten`).then((res: any) => setBultenData(res.data)).catch(console.error).finally(() => setBultenLoading(false));
+      axios.get(`${API_BASE}/fon`).then((res: any) => setFonData(res.data)).catch(console.error).finally(() => setFonLoading(false));
     };
 
     setBultenLoading(true);
@@ -96,8 +96,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (user?.id) {
-      axios.get(`${API_BASE}/favorites/${user.id}`).then(res => setFavorites(res.data)).catch(console.error);
-      axios.get(`${API_BASE}/alarms/${user.id}`).then(res => setAlarms(res.data)).catch(console.error);
+      axios.get(`${API_BASE}/favorites/${user.id}`).then((res: any) => setFavorites(res.data)).catch(console.error);
+      axios.get(`${API_BASE}/alarms/${user.id}`).then((res: any) => setAlarms(res.data)).catch(console.error);
     }
   }, [user]);
 
@@ -111,10 +111,10 @@ const App: React.FC = () => {
     try {
       if (isFav) {
         await axios.delete(`${API_BASE}/favorites`, { data: { userId: user.id, symbol: s } });
-        setFavorites(prev => prev.filter(f => f !== s.toUpperCase()));
+        setFavorites((prev: string[]) => prev.filter((f: string) => f !== s.toUpperCase()));
       } else {
         await axios.post(`${API_BASE}/favorites`, { userId: user.id, symbol: s });
-        setFavorites(prev => [...prev, s.toUpperCase()]);
+        setFavorites((prev: string[]) => [...prev, s.toUpperCase()]);
       }
     } catch (err) {
       console.error(err);
@@ -348,7 +348,7 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite, liv
 
       {/* Market Tabs */}
       <div className="flex px-4 gap-2">
-        {['BIST', 'KRİPTO', 'EMTİA'].map(t => (
+        {['BIST', 'KRİPTO', 'EMTİA'].map((t: string) => (
           <button
             key={t}
             onClick={() => setMarketTab(t)}
@@ -375,7 +375,7 @@ const Anasayfa = ({ user, bultenData, favorites, onSearch, onToggleFavorite, liv
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {filteredFavorites.map((fav) => (
+            {filteredFavorites.map((fav: string) => (
               <FavoriteCard key={fav} symbol={fav} onSelect={onSearch} onRemove={() => onToggleFavorite(fav)} livePrice={livePrices[fav]} />
             ))}
           </div>
@@ -400,7 +400,7 @@ const FavoriteCard = ({ symbol, onSelect, onRemove, livePrice }: any) => {
 
   useEffect(() => {
     const fetchData = () => {
-      axios.get(`${API_BASE}/stock/${symbol}`).then(res => setData(res.data)).catch(console.error);
+      axios.get(`${API_BASE}/stock/${symbol}`).then((res: any) => setData(res.data)).catch(console.error);
     };
 
     fetchData();
@@ -999,8 +999,8 @@ const SubViewDetail = ({ view, onBack, signals }: { view: string, onBack: () => 
     if (category) {
       setLoading(true);
       axios.get(`${API_BASE}/scan/${category}`)
-        .then(res => setData(res.data.results))
-        .catch(err => console.error(err))
+        .then((res: any) => setData(res.data.results))
+        .catch((err: any) => console.error(err))
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
@@ -1116,7 +1116,7 @@ const DerinlikTab = ({ symbol }: { symbol: string, user?: any }) => {
   useEffect(() => {
     setLoading(true);
     axios.get(`${API_BASE}/derinlik-cache/${symbol}`)
-      .then(res => { setDerinlik(res.data); setLoading(false); })
+      .then((res: any) => { setDerinlik(res.data); setLoading(false); })
       .catch(() => setLoading(false));
   }, [symbol]);
 
