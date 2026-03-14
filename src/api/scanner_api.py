@@ -192,7 +192,26 @@ def get_comprehensive_report(symbol):
         return {"error": str(e)}
 
 def calculate_single_indicators(symbol):
-    """Tekil hisse için saniyelik analiz hesaplaması."""
+    """Tekil hisse için saniyelik analiz hesaplaması - TradingView Odaklı."""
+    try:
+        try:
+            from tv_tech_api import get_tv_technical_analysis
+        except ImportError:
+            from api.tv_tech_api import get_tv_technical_analysis
+
+        tv_data = get_tv_technical_analysis(symbol)
+        if tv_data and "error" not in tv_data:
+            return {
+                "price": tv_data.get("price"),
+                "rsi": tv_data.get("rsi"),
+                "rsi_raw": float(tv_data.get("rsi", "50") if tv_data.get("rsi", "50") != "---" else "50"),
+                "macd": tv_data.get("macd"),
+                "moving_averages": tv_data.get("recommendation"),
+                "source": "TradingView (Live)"
+            }
+    except: pass
+
+    # Fallback to yfinance
     try:
         ticker = yf.Ticker(f"{symbol.upper()}.IS")
         df = ticker.history(period="1mo")
@@ -207,8 +226,10 @@ def calculate_single_indicators(symbol):
         return {
             "price": float(last),
             "rsi": f"{rsi:.1f}",
+            "rsi_raw": rsi,
             "macd": "Nötr",
-            "moving_averages": "Yükseliş" if last > df['Close'].rolling(20).mean().iloc[-1] else "Düşüş"
+            "moving_averages": "Yükseliş" if last > df['Close'].rolling(20).mean().iloc[-1] else "Düşüş",
+            "source": "Yahoo Finance"
         }
     except Exception as e:
         return {"error": str(e)}
